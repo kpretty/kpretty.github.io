@@ -1,0 +1,672 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hans ">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小王是个弟弟 || ElasticSearch</title>
+    <meta name="author" content="wjun">
+    <meta name="description" content=" ">
+    <meta name="keywords" content="big date ">
+    <link rel="icon" href="/images/avatar.png">
+    <link rel="stylesheet" href="/css/antd.min.css">
+    
+    <link rel="stylesheet" href="/css/full-theme.css">
+    
+    <script src="/js/vue.js"></script>
+    <script src="/js/antd.min.js"></script>
+<meta name="generator" content="Hexo 5.3.0"></head>
+
+<body>
+
+    <div id="loading"
+        style="height: 100vh; width: 100%; position: fixed;display: flex;z-index: 200; justify-content: space-between;">
+        <div id="loadleft" style="width: 50%;background-color: #ffffff;transition: width 0.6s ease-out;"></div>
+        <div id="loadright" style="width: 50%;background-color: #ffffff;transition: width 0.6s ease-out;"></div>
+        <div
+            style="position: fixed; height: 100vh; width: 100%;display: flex;justify-content: center;align-items: center;">
+            <div id="loadcontent"
+                style="width:400px;height:400px;padding:50px;border-radius:50%;display:flex;justify-content:center;align-items:center;border:solid 10px#a3ddfb; text-align:center;opacity:1;transition:opacity 0.3s ease-out;">
+                <div>
+                    <h2>LOADING...</h2>
+                    <p>加载过慢请开启缓存(浏览器默认开启)</p>
+                    <div>
+                        <img src="/dancingkitty.gif" alt="loading">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="layout">
+        <transition name="into">
+            <div v-show="show_page" style="display: none;">
+                <div id="menu_show">
+                     
+<nav id="menu">
+    <div class="desktop-menu">
+        <a href="/">
+            <span class="title">小王是个弟弟</span>
+        </a>
+        
+        <a href="/">
+            <span>
+                <a-icon type="home" theme="filled" />
+            </span>
+            <span>home</span>
+        </a>
+        
+        <a href="/about">
+            <span>
+                <a-icon type="idcard" theme="filled" />
+            </span>
+            <span>about</span>
+        </a>
+        
+        <a href="/archives">
+            <span>
+                <a-icon type="folder" theme="filled" />
+            </span>
+            <span>archives</span>
+        </a>
+        
+        <a href="/categories">
+            <span>
+                <a-icon type="book" theme="filled" />
+            </span>
+            <span>categories</span>
+        </a>
+        
+        <a href="/like/tags">
+            <span>
+                <a-icon type="tags" theme="filled" />
+            </span>
+            <span>tags</span>
+        </a>
+        
+    </div>
+
+    <div :class="'phone-menu ' + menu_show" id="phone-menu">
+        <div :class="'title'" @click="menu_show=!menu_show">
+            <span style="margin-right: 10px;">
+                <a-icon type="appstore" theme="filled" />
+            </span>
+            <span>小王是个弟弟</span>
+        </div>
+        <div class="items" v-show="menu_show">
+            
+            <a href="/">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="home" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">home</div>
+                </div>
+            </a>
+            
+            <a href="/about">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="idcard" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">about</div>
+                </div>
+            </a>
+            
+            <a href="/archives">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="folder" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">archives</div>
+                </div>
+            </a>
+            
+            <a href="/categories">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="book" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">categories</div>
+                </div>
+            </a>
+            
+            <a href="/like/tags">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="tags" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">tags</div>
+                </div>
+            </a>
+            
+        </div>
+        <div class="curtain" v-show="menu_show"></div>
+    </div>
+
+</nav>
+                </div>
+
+                <div id="main">
+                     
+<link rel="stylesheet" href="/css/post-body.css">
+<div class="article">
+    <div>
+        <h1>ElasticSearch </h1>
+    </div>
+    <div class="info">
+        <span class="date">
+            <span class="icon">
+                <a-icon type="calendar" theme="filled" />
+            </span>
+            2021/2/19
+        </span>
+
+        
+
+        
+    </div>
+
+    <div class="content" v-pre>
+        <p>![es log](/Users/wjun/Desktop/博客临时图床/es log.png)</p>
+<blockquote>
+<p>作者：wjun</p>
+<p>平台：Mac M1</p>
+<p>版本：7.10.2</p>
+</blockquote>
+<a id="more"></a>
+<h1 id="一、ElasticSearch介绍"><a href="#一、ElasticSearch介绍" class="headerlink" title="一、ElasticSearch介绍"></a>一、ElasticSearch介绍</h1><h2 id="1-1-引言"><a href="#1-1-引言" class="headerlink" title="1.1 引言"></a>1.1 引言</h2><ol>
+<li>在海量数据数据中执行搜索功能时，传统数据库效率太低</li>
+<li>如果关键字输入不准确，期望一样可以搜索到想要的数据</li>
+<li>搜索的关键字高亮显示</li>
+</ol>
+<h2 id="1-2-ES的介绍"><a href="#1-2-ES的介绍" class="headerlink" title="1.2 ES的介绍"></a>1.2 ES的介绍</h2><ol>
+<li>ES是一个使用Java语言并且基于Lucene编写的搜索引擎框架，它提供了分布式全文搜索功能，提供一个统一的基于RESTful风格的WEB接口</li>
+<li>Lucene：本身就是一个搜索引擎的底层</li>
+<li>分布式：ES主要是为了突出它的横向扩展能力</li>
+<li>全文检索：对比模糊查询，将一段词语进行分词，并且将分出的单个词语统一放到一个分词库中，在搜索时，根据关键词去分词库中检索，找到匹配的内容(倒排索引)</li>
+<li>RESTful：操作ES很简单，只需要发送一个http请求，根据请求方式不同、携带参数不同，执行相应的功能</li>
+<li>应用广泛：github、wiki、gold man</li>
+</ol>
+<h2 id="1-3-ES的由来"><a href="#1-3-ES的由来" class="headerlink" title="1.3 ES的由来"></a>1.3 ES的由来</h2><p>许多年前，一个刚结婚的名叫 Shay Banon 的失业开发者，跟着他的妻子去了伦敦，他的妻子在那里学习厨师。 在寻找一个赚钱的工作的时候，为了给他的妻子做一个食谱搜索引擎，他开始使用 Lucene 的一个早期版本。</p>
+<p>直接使用 Lucene 是很难的，因此 Shay 开始做一个抽象层，Java 开发者使用它可以很简单的给他们的程序添加搜索功能。 他发布了他的第一个开源项目 Compass。</p>
+<p>后来 Shay 获得了一份工作，主要是高性能，分布式环境下的内存数据网格。这个对于高性能，实时，分布式搜索引擎的需求尤为突出， 他决定重写 Compass，把它变为一个独立的服务并取名 Elasticsearch。</p>
+<p>第一个公开版本在2010年2月发布，从此以后，Elasticsearch 已经成为了 Github 上最活跃的项目之一，他拥有超过300名 contributors(目前736名 contributors )。 一家公司已经开始围绕 Elasticsearch 提供商业服务，并开发新的特性，但是，Elasticsearch 将永远开源并对所有人可用。</p>
+<p>据说，Shay 的妻子还在等着她的食谱搜索引擎…</p>
+<h2 id="1-4-ES和Slor"><a href="#1-4-ES和Slor" class="headerlink" title="1.4 ES和Slor"></a>1.4 ES和Slor</h2><ol>
+<li>Solr在查询死数据时，速度相对ES更快。但数据如果是实时改变的，Solr的查询速度会降低很多，ES的查询速度基本没有变化</li>
+<li>Solr需要基于Zookeeper来帮助集群搭建，ES自带集群概念</li>
+<li>最开始Solr的社区非常火爆，针对国内文档不是很多。ES出现之后，ES的社区异常火爆且ES文档非常健全</li>
+<li>ES对现在的云计算和大数据支持的特别好</li>
+</ol>
+<h2 id="1-5-倒排索引"><a href="#1-5-倒排索引" class="headerlink" title="1.5 倒排索引"></a>1.5 倒排索引</h2><ol>
+<li>将存放的数据，以一定的方式进行分词，并将分词内容存放到单独的分词库中</li>
+<li>当用户去查询数据时，会对用户的查询关键词进行分词</li>
+<li>根据关键词的分词去分词库中匹配，最终得到数据的id标识</li>
+<li>根据id标识去存放数据的位置拉取指定的数据</li>
+</ol>
+<p><img src="/Users/wjun/Desktop/%E5%8D%9A%E5%AE%A2%E4%B8%B4%E6%97%B6%E5%9B%BE%E5%BA%8A/%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95.png" alt="倒排索引"></p>
+<blockquote>
+<p>流程</p>
+</blockquote>
+<ol>
+<li>客户端发送“谁中国”查询请求</li>
+<li>对查询关键字进行分词得：谁、中国</li>
+<li>查询分词库，匹配结果的数据id标识：1，2，3</li>
+<li>返回对应id标识的数据</li>
+</ol>
+<h1 id="二、ElasticSearch安装"><a href="#二、ElasticSearch安装" class="headerlink" title="二、ElasticSearch安装"></a>二、ElasticSearch安装</h1><p>官网：<a target="_blank" rel="noopener" href="https://www.elastic.co/cn/">https://www.elastic.co/cn/</a></p>
+<p>ElasticSearch：<a target="_blank" rel="noopener" href="https://www.elastic.co/cn/downloads/past-releases/elasticsearch-7-10-2">https://www.elastic.co/cn/downloads/past-releases/elasticsearch-7-10-2</a></p>
+<p>Kibana：<a target="_blank" rel="noopener" href="https://www.elastic.co/cn/downloads/past-releases/kibana-7-10-2">https://www.elastic.co/cn/downloads/past-releases/kibana-7-10-2</a></p>
+<p>ik分词器：<a target="_blank" rel="noopener" href="https://github.com/medcl/elasticsearch-analysis-ik/releases/tag/v7.10.2">https://github.com/medcl/elasticsearch-analysis-ik/releases/tag/v7.10.2</a></p>
+<h2 id="2-1-安装es"><a href="#2-1-安装es" class="headerlink" title="2.1 安装es"></a>2.1 安装es</h2><p>解压</p>
+<pre><code class="shell">tar -zxvf elasticsearch-7.10.2-darwin-x86_64.tar.gz
+</code></pre>
+<p>运行</p>
+<pre><code class="shell">bin/elasticsearch
+</code></pre>
+<p>端口：<a target="_blank" rel="noopener" href="http://localhost:9200/">http://localhost:9200/</a></p>
+<pre><code class="json">&#123;
+  &quot;name&quot; : &quot;wjun.local&quot;,
+  &quot;cluster_name&quot; : &quot;mac-es&quot;,
+  &quot;cluster_uuid&quot; : &quot;CrSQxYYJQ-i-P-nF9yO5Hw&quot;,
+  &quot;version&quot; : &#123;
+    &quot;number&quot; : &quot;7.10.2&quot;,
+    &quot;build_flavor&quot; : &quot;default&quot;,
+    &quot;build_type&quot; : &quot;tar&quot;,
+    &quot;build_hash&quot; : &quot;747e1cc71def077253878a59143c1f785afa92b9&quot;,
+    &quot;build_date&quot; : &quot;2021-01-13T00:42:12.435326Z&quot;,
+    &quot;build_snapshot&quot; : false,
+    &quot;lucene_version&quot; : &quot;8.7.0&quot;,
+    &quot;minimum_wire_compatibility_version&quot; : &quot;6.8.0&quot;,
+    &quot;minimum_index_compatibility_version&quot; : &quot;6.0.0-beta1&quot;
+  &#125;,
+  &quot;tagline&quot; : &quot;You Know, for Search&quot;
+&#125;
+</code></pre>
+<h2 id="2-2-安装kibana"><a href="#2-2-安装kibana" class="headerlink" title="2.2 安装kibana"></a>2.2 安装kibana</h2><p>解压</p>
+<pre><code class="shell">tar -zxvf kibana-7.10.2-darwin-x86_64.tar.gz
+</code></pre>
+<p>运行</p>
+<pre><code class="shell">bin/kibana
+</code></pre>
+<p>端口：<a target="_blank" rel="noopener" href="http://localhost:5601/">http://localhost:5601/</a></p>
+<h2 id="2-3-安装ik分词器"><a href="#2-3-安装ik分词器" class="headerlink" title="2.3 安装ik分词器"></a>2.3 安装ik分词器</h2><ol>
+<li>将elasticsearch-analysis-ik-7.10.2.zip复制到es安装目录下的plugins中</li>
+<li>解压，并删除压缩包</li>
+<li>重启es服务</li>
+</ol>
+<h1 id="三、ElasticSearch基本操作"><a href="#三、ElasticSearch基本操作" class="headerlink" title="三、ElasticSearch基本操作"></a>三、ElasticSearch基本操作</h1><h2 id="3-1-ES的结构"><a href="#3-1-ES的结构" class="headerlink" title="3.1 ES的结构"></a>3.1 ES的结构</h2><h3 id="3-1-1-索引-Index"><a href="#3-1-1-索引-Index" class="headerlink" title="3.1.1 索引 Index"></a>3.1.1 索引 Index</h3><ol>
+<li>ES的服务中心，可以创建多个索引</li>
+<li>每个索引默认被分成5片存储</li>
+<li>每一个分片都会存在至少一个备份</li>
+<li>备份分片一般不参与检索数据，当ES检索压力大时会参与检索</li>
+<li>备份的分片会放置在不同的节点中（单节点没有备份）</li>
+<li>类似MySQL的数据库</li>
+</ol>
+<p>![es index](/Users/wjun/Desktop/博客临时图床/es index.png)</p>
+<h3 id="3-1-2-类型-Type"><a href="#3-1-2-类型-Type" class="headerlink" title="3.1.2 类型 Type"></a>3.1.2 类型 Type</h3><ol>
+<li>一个索引下，可以创建多个类型<ol>
+<li>ES 5.x 可以创建多个类型</li>
+<li>ES 6.x 可以创建一个类型</li>
+<li>ES 7.x 类型被废弃</li>
+</ol>
+</li>
+<li>相当于MySQL的表</li>
+</ol>
+<p>![es type](/Users/wjun/Desktop/博客临时图床/es type.png)</p>
+<h3 id="3-1-3-文档-Document"><a href="#3-1-3-文档-Document" class="headerlink" title="3.1.3 文档 Document"></a>3.1.3 文档 Document</h3><p>一个类型下，可以有多个文档；这个文档相当于MySQL表中的列，存储实际数据</p>
+<p>![es document](/Users/wjun/Desktop/博客临时图床/es document.png)</p>
+<h3 id="3-1-4-属性-Field"><a href="#3-1-4-属性-Field" class="headerlink" title="3.1.4 属性 Field"></a>3.1.4 属性 Field</h3><p>一个文档中可以包含多个属性，类型MySQL表中一行数据可以存在多个字段</p>
+<p>![es field](/Users/wjun/Desktop/博客临时图床/es field.png)</p>
+<h2 id="3-2-RESTful语法"><a href="#3-2-RESTful语法" class="headerlink" title="3.2 RESTful语法"></a>3.2 RESTful语法</h2><h3 id="3-2-1-GET-请求"><a href="#3-2-1-GET-请求" class="headerlink" title="3.2.1 GET 请求"></a>3.2.1 GET 请求</h3><p><a href="http://ip:port/index">http://ip:port/index</a> ：查询索引信息</p>
+<p><a href="http://ip:port/index/type/doc_id">http://ip:port/index/type/doc_id</a> ：查询指定的文档信息</p>
+<h3 id="3-2-2-POST-请求"><a href="#3-2-2-POST-请求" class="headerlink" title="3.2.2 POST 请求"></a>3.2.2 POST 请求</h3><p><a href="http://ip:port/index/type/doc_id/_search">http://ip:port/index/type/doc_id/_search</a> ：查询文档，可以在请求体中添加复杂的查询条件</p>
+<p><a href="http://ip:port/index/type/doc_id/_update">http://ip:port/index/type/doc_id/_update</a> ：修改文档，可以在请求体中添加修改的具体信息</p>
+<h3 id="3-2-3-PUT-请求"><a href="#3-2-3-PUT-请求" class="headerlink" title="3.2.3 PUT 请求"></a>3.2.3 PUT 请求</h3><p><a href="http://ip:port/index">http://ip:port/index</a> ：创建一个索引，需要在请求体中指定索引的信息、类型、结构</p>
+<p><a href="http://ip:port/index/type/_mappings">http://ip:port/index/type/_mappings</a> ：创建索引时，指定索引文档存储的属性信息</p>
+<h3 id="3-2-3-DELETE-请求"><a href="#3-2-3-DELETE-请求" class="headerlink" title="3.2.3 DELETE 请求"></a>3.2.3 DELETE 请求</h3><p><a href="http://ip:port/index">http://ip:port/index</a> ：删除索引</p>
+<p><a href="http://ip:port/index/type/doc_id">http://ip:port/index/type/doc_id</a> ：删除指定的文档ß</p>
+<h2 id="3-3-索引的操作"><a href="#3-3-索引的操作" class="headerlink" title="3.3 索引的操作"></a>3.3 索引的操作</h2><h3 id="3-3-1-创建索引"><a href="#3-3-1-创建索引" class="headerlink" title="3.3.1 创建索引"></a>3.3.1 创建索引</h3><pre><code class="json"># 创建索引
+PUT /person
+&#123;
+  &quot;settings&quot;: &#123;
+    &quot;number_of_replicas&quot;: 1,
+    &quot;number_of_shards&quot;: 5
+  &#125;
+&#125;
+</code></pre>
+<h3 id="3-3-2-查看索引信息"><a href="#3-3-2-查看索引信息" class="headerlink" title="3.3.2 查看索引信息"></a>3.3.2 查看索引信息</h3><p>方式一：WEB界面查看</p>
+<p>![es index信息](/Users/wjun/Desktop/博客临时图床/es index信息.png)</p>
+<p>方式二：RESTful语法</p>
+<pre><code class="json"># 查看索引信息
+GET /person
+</code></pre>
+<h3 id="3-3-3-删除索引"><a href="#3-3-3-删除索引" class="headerlink" title="3.3.3 删除索引"></a>3.3.3 删除索引</h3><p>方式一：WEB界面操作</p>
+<p>![es index 删除](/Users/wjun/Desktop/博客临时图床/es index 删除.png)</p>
+<p>方式二：RESTful语法</p>
+<pre><code class="json"># 删除索引
+DELETE /person
+</code></pre>
+<h2 id="3-4-Field的数据类型"><a href="#3-4-Field的数据类型" class="headerlink" title="3.4 Field的数据类型"></a>3.4 Field的数据类型</h2><h3 id="3-4-1-字符型"><a href="#3-4-1-字符型" class="headerlink" title="3.4.1 字符型"></a>3.4.1 字符型</h3><ol>
+<li>text：一般用于全文检索，将当前field进行分词</li>
+<li>keyword：不参与分词</li>
+</ol>
+<h3 id="3-4-2-数值型"><a href="#3-4-2-数值型" class="headerlink" title="3.4.2 数值型"></a>3.4.2 数值型</h3><ol>
+<li>long：64位整数</li>
+<li>integer：32位整数</li>
+<li>short：16位整数</li>
+<li>byte：8位整数</li>
+<li>double：64位浮点数</li>
+<li>float：34位浮点数</li>
+<li>half_float：精度比float小一半，16位浮点数</li>
+<li>scaled_float：根据一个long和scaled来表示一个浮点型，如：long-123,scaled-100 = 1.23</li>
+</ol>
+<h3 id="3-4-3-时间型"><a href="#3-4-3-时间型" class="headerlink" title="3.4.3 时间型"></a>3.4.3 时间型</h3><p>date：支持三种时间格式：yyyy-mm-dd HH:mm:ss || yyyy-MM-dd || epoch_millis</p>
+<h3 id="3-4-4-布尔型"><a href="#3-4-4-布尔型" class="headerlink" title="3.4.4 布尔型"></a>3.4.4 布尔型</h3><p>boolean：表示true/flase</p>
+<h3 id="3-4-5-二进制"><a href="#3-4-5-二进制" class="headerlink" title="3.4.5 二进制"></a>3.4.5 二进制</h3><p>支持Base64编码的字符串</p>
+<h3 id="3-4-6-范围型"><a href="#3-4-6-范围型" class="headerlink" title="3.4.6 范围型"></a>3.4.6 范围型</h3><ol>
+<li>long_range：赋值时，无需指定具体具体内容，只需要存储一个范围即可，如gt、lt、gte、lte</li>
+<li>integer_range：同上</li>
+<li>double_range：同上</li>
+<li>float_range：同上</li>
+<li>date_range：同上</li>
+<li>ip_range：同上</li>
+</ol>
+<h3 id="3-4-7-经纬度"><a href="#3-4-7-经纬度" class="headerlink" title="3.4.7 经纬度"></a>3.4.7 经纬度</h3><p>geo_point：用于存储经纬度，如定位</p>
+<h3 id="3-4-8-IP型"><a href="#3-4-8-IP型" class="headerlink" title="3.4.8 IP型"></a>3.4.8 IP型</h3><p>ip：支持IPV4和IPV6</p>
+<h3 id="3-4-9-其他"><a href="#3-4-9-其他" class="headerlink" title="3.4.9 其他"></a>3.4.9 其他</h3><p><a target="_blank" rel="noopener" href="https://www.elastic.co/guide/en/elasticsearch/reference/7.10/mapping-types.html">https://www.elastic.co/guide/en/elasticsearch/reference/7.10/mapping-types.html</a></p>
+<h2 id="3-5-创建带有结构的索引"><a href="#3-5-创建带有结构的索引" class="headerlink" title="3.5 创建带有结构的索引"></a>3.5 创建带有结构的索引</h2><p>RESTful语法</p>
+<blockquote>
+<p>ps:es 7.x移除type，自动给定_doc作为type</p>
+</blockquote>
+<pre><code class="json"># 创建带有结构的索引
+PUT /book
+&#123;
+  &quot;settings&quot;: &#123;
+    &quot;number_of_replicas&quot;: 1,
+    &quot;number_of_shards&quot;: 1
+  &#125;,
+  &quot;mappings&quot;: &#123;
+    &quot;properties&quot;: &#123;
+      &quot;name&quot;:&#123;
+        &quot;type&quot;: &quot;text&quot;,
+        &quot;analyzer&quot;: &quot;ik_max_word&quot;,
+        &quot;store&quot;: false,
+        &quot;index&quot;: true
+      &#125;,
+      &quot;author&quot;:&#123;
+        &quot;type&quot;: &quot;keyword&quot;
+      &#125;,
+      &quot;count&quot;:&#123;
+        &quot;type&quot;: &quot;integer&quot;
+      &#125;,
+      &quot;on-sale&quot;:&#123;
+        &quot;type&quot;: &quot;date&quot;,
+        &quot;format&quot;: &quot;yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis&quot;
+      &#125;,
+      &quot;desc&quot;:&#123;
+        &quot;type&quot;: &quot;text&quot;,
+        &quot;analyzer&quot;: &quot;ik_max_word&quot;
+      &#125;
+    &#125;
+  &#125;
+&#125;
+</code></pre>
+<p>解释：</p>
+<ol>
+<li>number_of_replicas：分片备份数</li>
+<li>number_of_shards：分片数</li>
+<li>mappings：指定数据的结构</li>
+<li>properties：指定fields</li>
+<li>type：指定field类型</li>
+<li>analyzer：指定分词器</li>
+<li>store：是否额外存储，默认false</li>
+<li>index：是否作为查询条件，默认true</li>
+</ol>
+<h2 id="3-6-文档的操作"><a href="#3-6-文档的操作" class="headerlink" title="3.6 文档的操作"></a>3.6 文档的操作</h2><blockquote>
+<p>ES中通过<code>_index</code>、<code>_type</code>、<code>_id</code>来唯一标识一个文档，其中<code>_type</code>为_doc。若锁定的文档存在则修改，不存在则添加</p>
+</blockquote>
+<h3 id="3-6-1-新建文档"><a href="#3-6-1-新建文档" class="headerlink" title="3.6.1 新建文档"></a>3.6.1 新建文档</h3><p>方式一：自动生成id[不推荐]</p>
+<pre><code class="json"># 创建文档，自动生成id
+POST /book/_doc
+&#123;
+  &quot;name&quot;:&quot;盘龙&quot;,
+  &quot;author&quot;:&quot;我爱吃西红柿&quot;,
+  &quot;count&quot;:10000,
+  &quot;on-sale&quot;:&quot;2010-01-02&quot;,
+  &quot;desc&quot;:&quot;我命由我不由天&quot;
+&#125;
+</code></pre>
+<p>ack：</p>
+<pre><code class="json">&#123;
+  &quot;_index&quot; : &quot;book&quot;,
+  &quot;_type&quot; : &quot;_doc&quot;,
+  &quot;_id&quot; : &quot;Z7SYuXcBNbDb1210DVGq&quot;,
+  &quot;_version&quot; : 1,
+  &quot;result&quot; : &quot;created&quot;,
+  &quot;_shards&quot; : &#123;
+    &quot;total&quot; : 2,
+    &quot;successful&quot; : 1,
+    &quot;failed&quot; : 0
+  &#125;,
+  &quot;_seq_no&quot; : 0,
+  &quot;_primary_term&quot; : 1
+&#125;
+</code></pre>
+<p>显然自动生成的id不利于操作</p>
+<p>方式二：手动指定id[推荐]</p>
+<pre><code class="json"># 创建文档，手动生成id
+PUT /book/_doc/1
+&#123;
+  &quot;name&quot;:&quot;斗破苍穹&quot;,
+  &quot;author&quot;:&quot;天蚕土豆&quot;,
+  &quot;count&quot;:90000,
+  &quot;on-sale&quot;:&quot;2010-03-02&quot;,
+  &quot;desc&quot;:&quot;斗宗强者，恐怖如斯&quot;
+&#125;
+</code></pre>
+<p>ack:</p>
+<pre><code class="json">&#123;
+  &quot;_index&quot; : &quot;book&quot;,
+  &quot;_type&quot; : &quot;_doc&quot;,
+  &quot;_id&quot; : &quot;1&quot;,
+  &quot;_version&quot; : 1,
+  &quot;result&quot; : &quot;created&quot;,
+  &quot;_shards&quot; : &#123;
+    &quot;total&quot; : 2,
+    &quot;successful&quot; : 1,
+    &quot;failed&quot; : 0
+  &#125;,
+  &quot;_seq_no&quot; : 1,
+  &quot;_primary_term&quot; : 1
+&#125;
+</code></pre>
+<h3 id="3-6-2-修改文档"><a href="#3-6-2-修改文档" class="headerlink" title="3.6.2 修改文档"></a>3.6.2 修改文档</h3><p>方式一：覆盖式修改[不推荐]</p>
+<pre><code class="json">PUT /book/_doc/1
+&#123;
+  &quot;name&quot;:&quot;斗破苍穹&quot;,
+  &quot;author&quot;:&quot;天蚕土豆&quot;,
+  &quot;count&quot;:12345,
+  &quot;on-sale&quot;:&quot;2010-03-02&quot;,
+  &quot;desc&quot;:&quot;斗宗强者，恐怖如斯&quot;
+&#125;
+</code></pre>
+<p>和添加一个文档一样，会全部修改。若某个field省略会取默认值</p>
+<p>方式二：doc修改[推荐]</p>
+<pre><code class="json"># 修改文档
+POST /book/_update/1
+&#123;
+  &quot;doc&quot;: &#123;
+    &quot;count&quot;:12345
+  &#125;
+&#125;
+</code></pre>
+<p>仅修改doc中的field</p>
+<h3 id="3-6-3-删除文档"><a href="#3-6-3-删除文档" class="headerlink" title="3.6.3 删除文档"></a>3.6.3 删除文档</h3><pre><code class="json"># 删除文档
+DELETE /book/_doc/Z7SYuXcBNbDb1210DVGq
+</code></pre>
+<h1 id="四、Java操作ElasticSearch"><a href="#四、Java操作ElasticSearch" class="headerlink" title="四、Java操作ElasticSearch"></a>四、Java操作ElasticSearch</h1><h2 id="4-1-连接ES"><a href="#4-1-连接ES" class="headerlink" title="4.1 连接ES"></a>4.1 连接ES</h2><blockquote>
+<p>pom.xml</p>
+</blockquote>
+<pre><code class="xml">&lt;dependencies&gt;
+  &lt;dependency&gt;
+    &lt;groupId&gt;org.elasticsearch&lt;/groupId&gt;
+    &lt;artifactId&gt;elasticsearch&lt;/artifactId&gt;
+    &lt;version&gt;7.10.2&lt;/version&gt;
+  &lt;/dependency&gt;
+  &lt;dependency&gt;
+    &lt;groupId&gt;org.elasticsearch.client&lt;/groupId&gt;
+    &lt;artifactId&gt;elasticsearch-rest-high-level-client&lt;/artifactId&gt;
+    &lt;version&gt;7.10.2&lt;/version&gt;
+  &lt;/dependency&gt;
+&lt;/dependencies&gt;
+</code></pre>
+<blockquote>
+<p>客户端工具类</p>
+</blockquote>
+<pre><code class="java">package com.hc.util;
+
+import org.apache.http.HttpHost;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.client.RestHighLevelClient;
+
+import java.io.IOException;
+
+/**
+ * Project: es
+ * Package: com.hc.util
+ * Version: 1.0
+ * Author: wjun
+ * &lt;p&gt;
+ * Description: ElasticSearch 客户端
+ * Created by hc on 2021/02/19 18:11
+ * © 1996 - 2021 Zhejiang Hong Cheng Computer Systems Co., Ltd.
+ */
+public class ESClient &#123;
+
+    private static RestHighLevelClient client;
+
+    public static RestHighLevelClient getClient() &#123;
+        // 创建 HttpHost
+        HttpHost httpHost = new HttpHost(&quot;localhost&quot;, 9200);
+
+        // 创建 RestClientBuilder
+        RestClientBuilder builder = RestClient.builder(httpHost);
+
+        // 返回es客户端
+        client = new RestHighLevelClient(builder);
+        return client;
+    &#125;
+    
+    // 关闭客户端
+    public static void close() throws IOException &#123;
+        if (client != null) &#123;
+            client.close();
+        &#125;
+    &#125;
+
+&#125;
+</code></pre>
+<blockquote>
+<p>测试</p>
+</blockquote>
+<pre><code class="java">package com.hc;
+
+import com.hc.util.ESClient;
+import org.elasticsearch.client.RestHighLevelClient;
+
+import java.io.IOException;
+
+/**
+ * Project: es
+ * Package: com.hc
+ * Version: 1.0
+ * Author: wjun
+ * &lt;p&gt;
+ * Description:
+ * Created by hc on 2021/02/19 18:14
+ * © 1996 - 2021 Zhejiang Hong Cheng Computer Systems Co., Ltd.
+ */
+public class Bootstrap &#123;
+    public static void main(String[] args) throws IOException &#123;
+        // 获取客户端连接
+        RestHighLevelClient client = ESClient.getClient();
+        System.out.println(&quot;successfully&quot;);
+        // 关闭连接
+        client.close();
+    &#125;
+&#125;
+</code></pre>
+<h2 id="4-2-创建索引"><a href="#4-2-创建索引" class="headerlink" title="4.2 创建索引"></a>4.2 创建索引</h2><pre><code class="java">public void createIndex(String index) throws IOException &#123;
+    // 准备settings
+    Settings.Builder settings = Settings.builder()
+            .put(&quot;number_of_shards&quot;, 1)
+            .put(&quot;number_of_replicas&quot;, 1);
+
+    // 准备mappings
+    XContentBuilder mappings = JsonXContent.contentBuilder()
+            .startObject()
+                .startObject(&quot;properties&quot;)
+                    .startObject(&quot;name&quot;)
+                        .field(&quot;type&quot;, &quot;text&quot;)
+                        .field(&quot;analyzer&quot;, &quot;ik_max_word&quot;)
+                    .endObject()
+                    .startObject(&quot;age&quot;)
+                        .field(&quot;type&quot;, &quot;integer&quot;)
+                    .endObject()
+                .endObject()
+            .endObject();
+
+    // 创建索引
+    CreateIndexRequest request = new CreateIndexRequest(index)
+            .settings(settings)
+            .mapping(mappings);
+
+    CreateIndexResponse response = ESClient.getClient().indices().create(request, RequestOptions.DEFAULT);
+
+    System.out.println(response.toString());
+
+    ESClient.close();
+&#125;
+</code></pre>
+
+    </div>
+
+    
+</div>
+                     
+<footer id="footer">
+    <div class="footer-wrap">
+        <div>
+            © 2018 - 2021 小王是个弟弟
+            <span class="footer-icon">
+                <a-icon type="flag" theme="filled" /></span>
+            @wjun
+        </div>
+        <div></div>
+        <div>Based on the <a target="_blank" rel="noopener" href="https://hexo.io/">Hexo Engine</a> & <a
+                target="_blank" rel="noopener" href="https://github.com/korilin/hexo-theme-particle">Particle Theme</a></div>
+        
+        <div>
+            备案号：<a target="_blank" rel="noopener" href="http://beian.miit.gov.cn/">
+                粤ICP备xxxxxx号
+            </a>
+        </div>
+        
+    </div>
+
+</footer>
+
+<script src="/js/highlight.min.js"></script>
+<script src="/js/particle.js"></script>
+                </div>
+            </div>
+        </transition>
+    </div>
+
+    <script>
+    new Vue({
+        el: "#layout",
+        data: {
+            show_page: false,
+            onload_menu: false,
+            menu_show: false,
+            card_top: 100
+        },
+        created: function () {
+            var that = this
+            window.onload = function () {
+                that.show_page = true
+                document.getElementById("loadcontent").style.opacity = 0
+                setTimeout(function () {
+                    document.getElementById("loadleft").style.width = 0
+                    document.getElementById("loadright").style.width = 0
+                }, 300)
+                setTimeout(function () {
+                    document.getElementById("loading").style = "display:none"
+                }, 600)
+            }
+        },
+        mounted: function () {
+            var that = this
+            window.addEventListener('scroll', function (e) {
+                that.menu_show = false
+            })
+        },
+        methods: {
+            home_click: function () {
+                window.scrollTo({
+                    top: window.innerHeight - 80,
+                    behavior: "smooth",
+                });
+            }
+        }
+    })
+</script>
+
+</body>
+
+</html>
