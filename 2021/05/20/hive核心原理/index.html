@@ -1,0 +1,1747 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hans ">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小王是个弟弟Hive 核心原理</title>
+    <meta name="author" content="wjun">
+    <meta name="description" content=" ">
+    <meta name="keywords" content="bigdata java db ">
+    <link rel="icon" href="/avatar.png">
+    <link rel="stylesheet" href="/css/antd.min.css">
+    
+    <link rel="stylesheet" href="/css/full-theme.css">
+    
+    <script src="/js/vue.js"></script>
+    <script src="/js/antd.min.js"></script>
+<meta name="generator" content="Hexo 5.3.0"></head>
+
+<body>
+
+    <div id="loading"
+        style="height: 100vh; width: 100%; position: fixed;display: flex;z-index: 200; justify-content: space-between;">
+        <div id="loadleft" style="width: 50%;background-color: #ffffff;transition: width 0.6s ease-out;"></div>
+        <div id="loadright" style="width: 50%;background-color: #ffffff;transition: width 0.6s ease-out;"></div>
+        <div
+            style="position: fixed; height: 100vh; width: 100%;display: flex;justify-content: center;align-items: center;">
+            <div id="loadcontent"
+                style="width:400px;height:400px;padding:50px;border-radius:50%;display:flex;justify-content:center;align-items:center;border:solid 10px#a3ddfb; text-align:center;opacity:1;transition:opacity 0.3s ease-out;">
+                <div>
+                    <h2>LOADING...</h2>
+                    <p>加载过慢请开启缓存(浏览器默认开启)</p>
+                    <div>
+                        <img src="/dancingkitty.gif" alt="loading">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="layout">
+        <transition name="into">
+            <div v-show="show_page" style="display: none;">
+                <div id="menu_show">
+                     
+<nav id="menu">
+    <div class="desktop-menu">
+        <a href="/">
+            <span class="title">小王是个弟弟</span>
+        </a>
+        
+        <a href="/">
+            <span>
+                <a-icon type="home" theme="filled" />
+            </span>
+            <span>home</span>
+        </a>
+        
+        <a href="/about">
+            <span>
+                <a-icon type="idcard" theme="filled" />
+            </span>
+            <span>about</span>
+        </a>
+        
+        <a href="/archives">
+            <span>
+                <a-icon type="folder" theme="filled" />
+            </span>
+            <span>archives</span>
+        </a>
+        
+        <a href="/categories">
+            <span>
+                <a-icon type="book" theme="filled" />
+            </span>
+            <span>categories</span>
+        </a>
+        
+        <a href="/tags">
+            <span>
+                <a-icon type="tags" theme="filled" />
+            </span>
+            <span>tags</span>
+        </a>
+        
+    </div>
+
+    <div :class="'phone-menu ' + menu_show" id="phone-menu">
+        <div :class="'title'" @click="menu_show=!menu_show">
+            <span style="margin-right: 10px;">
+                <a-icon type="appstore" theme="filled" />
+            </span>
+            <span>小王是个弟弟</span>
+        </div>
+        <div class="items" v-show="menu_show">
+            
+            <a href="/">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="home" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">home</div>
+                </div>
+            </a>
+            
+            <a href="/about">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="idcard" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">about</div>
+                </div>
+            </a>
+            
+            <a href="/archives">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="folder" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">archives</div>
+                </div>
+            </a>
+            
+            <a href="/categories">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="book" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">categories</div>
+                </div>
+            </a>
+            
+            <a href="/tags">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="tags" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">tags</div>
+                </div>
+            </a>
+            
+        </div>
+        <div class="curtain" v-show="menu_show"></div>
+    </div>
+
+</nav>
+                </div>
+
+                <div id="main">
+                     
+<link rel="stylesheet" href="/css/post-body.css">
+<div class="article">
+    <div>
+        <h1>Hive 核心原理 </h1>
+    </div>
+    <div class="info">
+        <span class="date">
+            <span class="icon">
+                <a-icon type="calendar" theme="filled" />
+            </span>
+            2021/5/20
+        </span>
+
+        
+
+        
+    </div>
+
+    <div class="content" v-pre>
+        <h1 id="一、Hive-概述"><a href="#一、Hive-概述" class="headerlink" title="一、Hive 概述"></a>一、Hive 概述</h1><h2 id="1-1-Hive-是什么"><a href="#1-1-Hive-是什么" class="headerlink" title="1.1 Hive 是什么"></a>1.1 Hive 是什么</h2><ul>
+<li>由Facebook开源用于解决海量结构化日志的数据统计</li>
+<li>基于Hadoop的一个数据仓库工具，可以将结构化的数据文件映射成一张表，并且提供类SQL的查询功能</li>
+<li>Hive仅仅是一个工具，本身不存储数据只提供一种管理方式，同时也不涉及分布式概念，就是个软件而已</li>
+<li>Hive本质就是MapReduce，将类SQL（HQL）转换成MapReduce程序<a id="more"></a>
+<h3 id="1-1-1-HQL转换MR流程"><a href="#1-1-1-HQL转换MR流程" class="headerlink" title="1.1.1 HQL转换MR流程"></a>1.1.1 HQL转换MR流程</h3><img src="https://img-blog.csdnimg.cn/20200829193044626.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></li>
+</ul>
+<p>解释：</p>
+<ol>
+<li>Hive处理的数据存储在HDFS</li>
+<li>Hive分析数据底层默认实现是MapReduce[可以修改为spark]</li>
+</ol>
+<pre><code>Hive-on-MR is deprecated in Hive 2 and may not be available in the future versions. Consider using a different execution engine (i.e. spark, tez) or using Hive 1.X releases.
+</code></pre>
+<ol start="3">
+<li>执行的程序运行在yarn上</li>
+<li>Hive相当于Hadoop的一个客户端</li>
+<li>Hive不是分布式</li>
+</ol>
+<h2 id="1-2-Hive-优缺点"><a href="#1-2-Hive-优缺点" class="headerlink" title="1.2 Hive 优缺点"></a>1.2 Hive 优缺点</h2><h3 id="1-2-1-优点"><a href="#1-2-1-优点" class="headerlink" title="1.2.1 优点"></a>1.2.1 优点</h3><ol>
+<li>操作接口采用类SQL语法，提供快速开发的能力（简单、易上手）</li>
+<li>避免去写MR，减少开发人员学习成本</li>
+<li>Hive的延迟比较高（因为MR延迟高），因此Hive常用于数据分析</li>
+<li>Hive优势在于处理大数据（数据量少真不如MySQL等）</li>
+<li>Hive支持用户自定义函数，可以根据自己的去求实现自己的函数</li>
+</ol>
+<h3 id="1-2-2-缺点"><a href="#1-2-2-缺点" class="headerlink" title="1.2.2 缺点"></a>1.2.2 缺点</h3><ol>
+<li>Hive的HQL表达能力有限（MR决定的）<ol>
+<li>迭代算法无法表达</li>
+<li>不适用于数据挖掘</li>
+</ol>
+</li>
+<li>Hive的效率比较低<ol>
+<li>Hive自动生成的MR作业，通常情况不够智能</li>
+<li>Hive调优难（只能对资源，SQL层面调优，无法深入作业底层逻辑）</li>
+</ol>
+</li>
+</ol>
+<h2 id="1-3-Hive-架构原理"><a href="#1-3-Hive-架构原理" class="headerlink" title="1.3 Hive 架构原理"></a>1.3 Hive 架构原理</h2><p><img src="https://img-blog.csdnimg.cn/20200829193104659.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<ol>
+<li><p>用户接口：Client</p>
+<p>CLI（hive shell）、JDBC/ODBC（java访问hive）、WEBUI（浏览器访问hive）</p>
+</li>
+<li><p>元数据：Metastore</p>
+<p>包括表名、表所属的数据库、表的拥有者、列/分区字段、表的类型、表数据所在的目录等（自带个derby数据库，推荐配置到MySQL）</p>
+</li>
+<li><p>底层存储：HDFS</p>
+<p>使用HDFS进行存储，使用MapReduce计算</p>
+</li>
+<li><p>驱动器：Driver</p>
+<ol>
+<li>解析器（SQL Parser）：将SQL字符串转换成抽象语法树AST，并对语法树进行语法分析，如：SQL语法、表/字符是否存在</li>
+<li>编译期（Physical Plan）：将AST编译生成逻辑执行计划</li>
+<li>优化器（Query Optimizer）：对逻辑执行计划进行优化</li>
+<li>执行器（Execution）：把逻辑执行计算转换成运行的物理计划，即MR/Spark<br><img src="https://img-blog.csdnimg.cn/20200829193121705.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></li>
+</ol>
+</li>
+</ol>
+<p>Hive通过给用户提供的一系列交互接口，接受到用户编写的SQL，使用自己的Driver结合MetaStore，将SQL指令翻译成MapReduce提交到Hadoop中执行，将执行结果输出到用户交互接口。</p>
+<h2 id="1-4-Hive-和传统数据库比较"><a href="#1-4-Hive-和传统数据库比较" class="headerlink" title="1.4 Hive 和传统数据库比较"></a>1.4 Hive 和传统数据库比较</h2><p>Hive除了提供类似SQL语法外和传统数据库没有任何相似之处，Hive是站在数据仓库出发点而设计的。</p>
+<h3 id="1-4-1-数据存储位置"><a href="#1-4-1-数据存储位置" class="headerlink" title="1.4.1 数据存储位置"></a>1.4.1 数据存储位置</h3><p>Hive是建立在Hadoop之上，所有的Hive数据都是存储在HDFS上；传统数据库将数据保存在本地文件系统中；因此Hive能够处理更大更多的数据</p>
+<h3 id="1-4-2-数据更新"><a href="#1-4-2-数据更新" class="headerlink" title="1.4.2 数据更新"></a>1.4.2 数据更新</h3><p>Hive是针对数据仓库应用设计，因此数据一次写入多次读出，即Hive中不建议对数据进行改写操作，所有数据都是在加载的时候确定好；对于数据库通常需要进行频繁的增删查改</p>
+<h3 id="1-4-3-索引"><a href="#1-4-3-索引" class="headerlink" title="1.4.3 索引"></a>1.4.3 索引</h3><p>Hive在加载数据过程不会对数据进行任何处理，因为数据量庞大建立索引并不划算，因此Hive访问数据中满足特定值需要暴力扫描真个数据，因此访问延迟高。由于MapReduce的引入，Hive可以并行访问数据，即便没有索引也可用于大数据量的访问；传统数据库通常针对一个或多个列建立索引，因此在访问数据是延迟低效率高，即Hive不适合实时数据分析</p>
+<h3 id="1-4-4-执行"><a href="#1-4-4-执行" class="headerlink" title="1.4.4 执行"></a>1.4.4 执行</h3><p>Hive 的执行引擎为MR/Spark，传统数据库都有自己的执行引擎</p>
+<h3 id="1-4-5-可拓展性"><a href="#1-4-5-可拓展性" class="headerlink" title="1.4.5 可拓展性"></a>1.4.5 可拓展性</h3><p>由于Hadoop的高拓展性，因此Hive也具备很强的拓展性；传统数据库的拓展会受到一定的限制</p>
+<h3 id="1-4-6-数据规模"><a href="#1-4-6-数据规模" class="headerlink" title="1.4.6 数据规模"></a>1.4.6 数据规模</h3><p>Hive可以利用MapReduce进行大规模数据的并行计算；传统数据库支持的数据规模较小</p>
+<h1 id="二、Hive-初步"><a href="#二、Hive-初步" class="headerlink" title="二、Hive 初步"></a>二、Hive 初步</h1><h2 id="2-1-Hive-安装"><a href="#2-1-Hive-安装" class="headerlink" title="2.1 Hive 安装"></a>2.1 Hive 安装</h2><p>将元数据配置到MySQL中需要初始化，初始化命令（其余步骤可自行百度）：</p>
+<pre><code class="shell">schematool -dbType mysql -initSchema
+</code></pre>
+<h2 id="2-2-Hive-基本操作"><a href="#2-2-Hive-基本操作" class="headerlink" title="2.2 Hive 基本操作"></a>2.2 Hive 基本操作</h2><ol>
+<li><p>启动hive</p>
+<pre><code class="shell">[root@master hive-3.2.1]# hive
+</code></pre>
+</li>
+<li><p>查看数据库</p>
+<pre><code class="shell">hive (hive)&gt; show databases;
+OK
+database_name
+default
+hive
+Time taken: 0.02 seconds, Fetched: 2 row(s)
+</code></pre>
+<p>hive自带一个default数据库，默认也是进这个数据库</p>
+</li>
+<li><p>切换数据库</p>
+<pre><code class="shell">hive (hive)&gt; use hive;
+OK
+Time taken: 0.031 seconds
+</code></pre>
+</li>
+<li><p>创建表</p>
+<pre><code class="shell">hive (hive)&gt; create table if not exists tbl_1(id int,name string);
+OK
+Time taken: 0.628 seconds
+</code></pre>
+<p>和MySQL语法基本一致，只是Hive的数据类型和Java类似</p>
+</li>
+<li><p>查看表结构</p>
+<pre><code class="shell">hive (hive)&gt; desc tbl_1;
+OK
+col_name        data_type       comment
+id                      int
+name                    string
+Time taken: 0.084 seconds, Fetched: 2 row(s)
+-------------------- 分隔符 -------------------
+# 查看表的详细信息
+hive (hive)&gt; desc formatted tbl_1;
+OK
+col_name        data_type       comment
+# col_name              data_type               comment
+id                      int
+name                    string
+
+# Detailed Table Information
+Database:               hive
+OwnerType:              USER
+Owner:                  root
+CreateTime:             Wed Aug 26 19:55:58 CST 2020
+LastAccessTime:         UNKNOWN
+Retention:              0
+Location:               hdfs://master:9000/user/hive/warehouse/hive.db/tbl_1
+Table Type:             MANAGED_TABLE
+Table Parameters:
+        COLUMN_STATS_ACCURATE   &#123;\&quot;BASIC_STATS\&quot;:\&quot;true\&quot;,\&quot;COLUMN_STATS\&quot;:&#123;\&quot;id\&quot;:\&quot;true\&quot;,\&quot;name\&quot;:\&quot;true\&quot;&#125;&#125;
+        bucketing_version       2
+        numFiles                0
+        numRows                 0
+        rawDataSize             0
+        totalSize               0
+        transient_lastDdlTime   1598442958
+
+# Storage Information
+SerDe Library:          org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe
+InputFormat:            org.apache.hadoop.mapred.TextInputFormat
+OutputFormat:           org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+Compressed:             No
+Num Buckets:            -1
+Bucket Columns:         []
+Sort Columns:           []
+Storage Desc Params:
+        serialization.format    1
+Time taken: 0.154 seconds, Fetched: 32 row(s)
+</code></pre>
+</li>
+<li><p>插入数据（不要用，不要用，不要用）</p>
+<pre><code class="shell">hive (hive)&gt; insert into tbl_1 values(1,&#39;zhangsan&#39;);
+...
+...
+...
+Time taken: 84.754 seconds
+</code></pre>
+<p>谁用谁知道</p>
+</li>
+<li><p>查询数据</p>
+<pre><code class="shell">hive (hive)&gt; select * from tbl_1;
+OK
+tbl_1.id        tbl_1.name
+1       zhangsan
+Time taken: 0.214 seconds, Fetched: 1 row(s)
+</code></pre>
+</li>
+<li><p>退出hive</p>
+<pre><code class="shell">hive (hive)&gt; quit;
+</code></pre>
+</li>
+<li><p>执行hdfs shell</p>
+<pre><code class="shell">hive (hive)&gt; dfs -ls /;
+Found 3 items
+drwxr-xr-x   - root supergroup          0 2020-07-21 15:57 /HBase
+drwx-wx-wx   - root supergroup          0 2020-07-21 18:27 /tmp
+drwxrwxrwx   - root supergroup          0 2020-07-21 18:00 /user
+</code></pre>
+</li>
+<li><p>执行linux shell</p>
+<pre><code class="shell">hive (hive)&gt; !pwd;
+/usr/local/soft/hive-3.2.1
+</code></pre>
+</li>
+</ol>
+<h2 id="2-3-Hive-常规操作"><a href="#2-3-Hive-常规操作" class="headerlink" title="2.3 Hive 常规操作"></a>2.3 Hive 常规操作</h2><pre><code class="shell">hive (hive)&gt; insert into tbl_1 values(1,&#39;zhangsan&#39;);
+...
+...
+...
+Time taken: 84.754 seconds
+</code></pre>
+<p>插入一条数据84秒，显然不现实…为此Hive插入数据将采用最暴力最直接的方式，只需要将数据文件放到hdfs制定的路径即可。但也不是什么数据都可以，需要在创建表时指定分隔符。</p>
+<pre><code class="shell">hive (hive)&gt; create table if not exists tbl_2(id int,name string)
+           &gt; row format delimited fields terminated by &#39;\t&#39;;
+OK
+Time taken: 0.118 seconds
+</code></pre>
+<p>准备数据</p>
+<pre><code class="shell">[root@master data]# cat student.txt
+1       zhangsan
+2       lisi
+3       wangwu
+4       zhaoliu
+5       tianqi
+[root@master data]# pwd
+/usr/local/soft/hive-3.2.1/data
+</code></pre>
+<h3 id="2-3-1-hive-插入数据一"><a href="#2-3-1-hive-插入数据一" class="headerlink" title="2.3.1 hive 插入数据一"></a>2.3.1 hive 插入数据一</h3><p>加载本地数据到hive</p>
+<pre><code class="shell">hive (hive)&gt; load data local inpath &#39;/usr/local/soft/hive-3.2.1/data/student.txt&#39; into table tbl_2;
+Loading data to table hive.tbl_2
+OK
+Time taken: 0.311 seconds
+
+hive (hive)&gt; select * from tbl_2;
+OK
+tbl_2.id        tbl_2.name
+1       zhangsan
+2       lisi
+3       wangwu
+4       zhaoliu
+5       tianqi
+Time taken: 0.192 seconds, Fetched: 5 row(s)
+</code></pre>
+<p>评价：方便、推荐使用</p>
+<h3 id="2-3-2-hive-插入数据二"><a href="#2-3-2-hive-插入数据二" class="headerlink" title="2.3.2 hive 插入数据二"></a>2.3.2 hive 插入数据二</h3><p>hive管理的数据是放在hdfs，可以再配置文件指定存储路径，可以进入指定路径查看，也可以通过<code>desc formatted 表名</code>看到该表的存储路径<br><img src="https://img-blog.csdnimg.cn/20200829193139897.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"><br><img src="https://img-blog.csdnimg.cn/20200829193156499.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<ul>
+<li>hive在hdfs存储的根路径是在/…/warehouse/下</li>
+<li>一个数据库对应一个文件夹，命名方式为数据库名.db（默认数据库除外）</li>
+<li>每张表也对应一个文件夹，命名方式为表名</li>
+<li>数据文件直接放在表对应的文件夹下，因此通过load方式其实底层调用的是<code>hadoop fs -put</code></li>
+<li>默认数据库下的表直接放在warehouse下命名方式不变</li>
+</ul>
+<p>基于上述规律可以有第二种插入方式，直接通过hadoop的shell将文件put到指定的hdfs路径下即可</p>
+<pre><code class="shell">[root@master data]# hadoop fs -put student.txt /user/hive/warehouse/hive.db/tbl_2/student_1.txt
+</code></pre>
+<pre><code class="shell">hive (hive)&gt; select * from tbl_2;
+OK
+tbl_2.id        tbl_2.name
+1       zhangsan
+2       lisi
+3       wangwu
+4       zhaoliu
+5       tianqi
+1       zhangsan
+2       lisi
+3       wangwu
+4       zhaoliu
+5       tianqi
+Time taken: 0.396 seconds, Fetched: 10 row(s)
+</code></pre>
+<p>总结：也可以用，但是必须知道表在hdfs上的路径，所以这种方式路就走窄了呀！</p>
+<p>看过hive数据库、表、数据在hdfs上的存储结构后，尝试再次加载一次数据，这次通过load加载hdfs上的数据</p>
+<pre><code class="shell">hive (hive)&gt; load data inpath &#39;/student.txt&#39; into table tbl_2;
+Loading data to table hive.tbl_2
+OK
+Time taken: 0.683 seconds
+</code></pre>
+<p>load方式加载hdfs文件不需要加local（很显然），这时候再次查看hdfs信息，此时原数据将会被删除（其实就是hadoop fs -mv）<br><img src="https://img-blog.csdnimg.cn/20200829193210634.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<p>对于多次加载相同数据文件情况，hive会将数据文件重命名后上传到hdfs指定路径，重命名格式：原文件名_copy_n.txt；和windows下同名文件处理类似。</p>
+<h2 id="2-4-Hive-数据类型"><a href="#2-4-Hive-数据类型" class="headerlink" title="2.4 Hive 数据类型"></a>2.4 Hive 数据类型</h2><h3 id="2-4-1-基本数据类型"><a href="#2-4-1-基本数据类型" class="headerlink" title="2.4.1 基本数据类型"></a>2.4.1 基本数据类型</h3><table>
+<thead>
+<tr>
+<th align="center">Hive数据类型</th>
+<th align="center">Java数据类型</th>
+<th align="center">长度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">tinyint</td>
+<td align="center">byte</td>
+<td align="center">1byte</td>
+</tr>
+<tr>
+<td align="center">smalint</td>
+<td align="center">short</td>
+<td align="center">2byte</td>
+</tr>
+<tr>
+<td align="center">int</td>
+<td align="center">int</td>
+<td align="center">4byte</td>
+</tr>
+<tr>
+<td align="center">bigint</td>
+<td align="center">long</td>
+<td align="center">8byte</td>
+</tr>
+<tr>
+<td align="center">boolean</td>
+<td align="center">boolean</td>
+<td align="center">true/false</td>
+</tr>
+<tr>
+<td align="center">float</td>
+<td align="center">float</td>
+<td align="center">单精度</td>
+</tr>
+<tr>
+<td align="center">double</td>
+<td align="center">double</td>
+<td align="center">双精度</td>
+</tr>
+<tr>
+<td align="center">string</td>
+<td align="center">String</td>
+<td align="center">字符串</td>
+</tr>
+<tr>
+<td align="center">timestamp</td>
+<td align="center"></td>
+<td align="center"></td>
+</tr>
+<tr>
+<td align="center">bigary</td>
+<td align="center"></td>
+<td align="center"></td>
+</tr>
+</tbody></table>
+<p>常用的基本数据类型有int、bigint、double、string且不区分大小写；boolean一般使用0/1代替以减少存储量；string使用最多，一般都是处理日志，理论上可以存储2G数据（一行）。</p>
+<h3 id="2-4-2-集合数据类型"><a href="#2-4-2-集合数据类型" class="headerlink" title="2.4.2 集合数据类型"></a>2.4.2 集合数据类型</h3><table>
+<thead>
+<tr>
+<th align="center">数据类型</th>
+<th align="center">描述</th>
+<th align="center">语法实例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">struct</td>
+<td align="center">结构体，复杂无关系数据</td>
+<td align="center">struct&lt;k1:v,k2:v&gt;</td>
+</tr>
+<tr>
+<td align="center">map</td>
+<td align="center">字典，键值对元组集合</td>
+<td align="center">map&lt;k,v&gt;</td>
+</tr>
+<tr>
+<td align="center">array</td>
+<td align="center">数组，同一类型集合</td>
+<td align="center">array&lt;v&gt;</td>
+</tr>
+</tbody></table>
+<p>struct和map区别在于map只能存储一组一组的k-v对，且一个map中的k不能相同，struct可以存储很对组相同key不同value的数据结构，即map中每组数据的key都不相同，struct中每组数据对应位置的key都是一样的；集合数据类型允许任意层次的嵌套。</p>
+<h3 id="2-4-3-类型转换"><a href="#2-4-3-类型转换" class="headerlink" title="2.4.3 类型转换"></a>2.4.3 类型转换</h3><p>Hive支持类似java的数据类型转换</p>
+<p>隐式转换</p>
+<ul>
+<li>tinyint -&gt; smalint -&gt; int -&gt; bigint -&gt; float -&gt; double</li>
+<li>string类型只有是数字才可以转换</li>
+<li>boolean不能转换成任意类型</li>
+</ul>
+<p>强制类型转换</p>
+<pre><code class="shell">hive (hive)&gt; select cast(&#39;1&#39; as int);
+OK
+_c0
+1
+Time taken: 0.937 seconds, Fetched: 1 row(s)
+hive (hive)&gt; select cast(&#39;a&#39; as int);
+OK
+_c0
+NULL
+Time taken: 0.184 seconds, Fetched: 1 row(s)
+</code></pre>
+<p>好吧，看不出什么效果</p>
+<h3 id="2-4-4-测试集合数据类型"><a href="#2-4-4-测试集合数据类型" class="headerlink" title="2.4.4 测试集合数据类型"></a>2.4.4 测试集合数据类型</h3><p>需要存储如下格式数据（json）</p>
+<pre><code class="json">&#123;
+    &quot;name&quot;: &quot;陈小春&quot;,
+    &quot;friends&quot;: [&quot;郑伊健&quot; , &quot;谢天华&quot;], //列表Array
+    &quot;children&quot;: &#123;                    //键值Map
+        &quot;jasper&quot;: 3 ,
+        &quot;baby&quot;: 1 ,
+     &#125;
+    &quot;address&quot;: &#123;                     //结构Struct
+        &quot;street&quot;: &quot;皇后大道&quot; ,
+        &quot;city&quot;: &quot;香港&quot;
+     &#125;
+&#125;
+&#123;
+    &quot;name&quot;: &quot;刘烨&quot;,
+    &quot;friends&quot;: [&quot;章子怡&quot; , &quot;孙俪&quot;],         
+    &quot;children&quot;: &#123;                       
+        &quot;诺一&quot;: 8 ,
+        &quot;霓娜&quot;: 6 ,
+     &#125;
+    &quot;address&quot;: &#123;                       
+        &quot;street&quot;: &quot;长安街&quot; ,
+        &quot;city&quot;: &quot;北京&quot;
+     &#125;
+&#125;
+</code></pre>
+<p>将一条数据转换成一行数据，去除没必要的数据，在一条数据中，字段之间用’,’隔开，集合元素之间用’_’隔开，map的kv用’:’隔开，因此可以转换成如下格式</p>
+<pre><code>陈小春,郑伊健_谢天华,jasper:3_baby:1,皇后大道_香港
+刘烨,章子怡_孙俪,诺一:8_霓娜:6,长安街_北京
+</code></pre>
+<p>针对上述数据创建如下表</p>
+<pre><code class="shell">hive (hive)&gt; create table tbl_3(name string,friends array&lt;string&gt;,childress map&lt;string,int&gt;,address struct&lt;street:string,city:string&gt;)
+           &gt; row format delimited fields terminated by &#39;,&#39;
+           &gt; collection items terminated by &#39;_&#39;
+           &gt; map keys terminated by &#39;:&#39;;
+OK
+Time taken: 0.124 seconds
+</code></pre>
+<p>解释：</p>
+<ul>
+<li><code>row format delimited fields terminated by &#39;,&#39;</code>设置字段分割符</li>
+<li><code>collection items terminated by &#39;_&#39;</code>设置集合元素分割符</li>
+<li><code>map keys terminated by &#39;:&#39;</code>设置map键值对分隔符</li>
+<li><code>lines terminated by &#39;\n&#39;</code>设置行分隔符，默认<code>\n</code></li>
+</ul>
+<p>导入数据测试</p>
+<pre><code class="shell">hive (hive)&gt; load data local inpath &#39;/usr/local/soft/hive-3.2.1/data/test_collection&#39; into table tbl_3;
+Loading data to table hive.tbl_3
+OK
+Time taken: 0.281 seconds
+hive (hive)&gt; select * from tbl_3;
+OK
+tbl_3.name      tbl_3.friends   tbl_3.childress tbl_3.address
+陈小春  [&quot;郑伊健&quot;,&quot;谢天华&quot;]     &#123;&quot;jasper&quot;:3,&quot;baby&quot;:1&#125;   &#123;&quot;street&quot;:&quot;皇后大道&quot;,&quot;city&quot;:&quot;香港&quot;&#125;
+刘烨    [&quot;章子怡&quot;,&quot;孙俪&quot;]       &#123;&quot;诺一&quot;:8,&quot;霓娜&quot;:6&#125;     &#123;&quot;street&quot;:&quot;长安街&quot;,&quot;city&quot;:&quot;北京&quot;&#125;
+Time taken: 0.176 seconds, Fetched: 2 row(s)
+hive (hive)&gt; select name,friends[0],childress[&#39;baby&#39;],address.street from tbl_3;
+OK
+name    _c1     _c2     street
+陈小春  郑伊健  1       皇后大道
+刘烨    章子怡  NULL    长安街
+Time taken: 0.222 seconds, Fetched: 2 row(s)
+</code></pre>
+<h1 id="三、DDL-数据定义语言"><a href="#三、DDL-数据定义语言" class="headerlink" title="三、DDL 数据定义语言"></a>三、DDL 数据定义语言</h1><h2 id="3-1-数据库操作"><a href="#3-1-数据库操作" class="headerlink" title="3.1 数据库操作"></a>3.1 数据库操作</h2><h3 id="3-1-1-创建数据库"><a href="#3-1-1-创建数据库" class="headerlink" title="3.1.1 创建数据库"></a>3.1.1 创建数据库</h3><h4 id="1-方式一"><a href="#1-方式一" class="headerlink" title="1.方式一"></a>1.方式一</h4><p>创建一个数据库，默认存储在hdfs中/user/hive/warehouse/*.db</p>
+<pre><code class="shell">hive (default)&gt; create database test;
+OK
+Time taken: 0.827 seconds
+</code></pre>
+<p>若数据库已经存在会报<code> Execution Error</code>，推荐使用方法二</p>
+<h4 id="2-方式二"><a href="#2-方式二" class="headerlink" title="2.方式二"></a>2.方式二</h4><p>避免创建的数据库已经存在的错误，使用<code>if not exists</code>写法</p>
+<pre><code class="shell">hive (default)&gt; create database if not exists hive;
+OK
+Time taken: 0.029 seconds
+</code></pre>
+<h4 id="3-方式三"><a href="#3-方式三" class="headerlink" title="3.方式三"></a>3.方式三</h4><p>指定数据库在hdfs的存储位置</p>
+<pre><code class="shell">create database test location &#39;/hive/test.db&#39;;
+OK
+Time taken: 0.097 seconds
+</code></pre>
+<h3 id="3-1-2-查询数据库"><a href="#3-1-2-查询数据库" class="headerlink" title="3.1.2 查询数据库"></a>3.1.2 查询数据库</h3><h4 id="1-显示数据库"><a href="#1-显示数据库" class="headerlink" title="1.显示数据库"></a>1.显示数据库</h4><p>显示数据库</p>
+<pre><code class="shell">hive (hive)&gt; show databases;
+OK
+database_name
+default
+hive
+Time taken: 0.03 seconds, Fetched: 2 row(s)
+</code></pre>
+<p>过滤显示查询的数据库</p>
+<pre><code class="shell">hive (hive)&gt; show databases like &#39;h*&#39;;
+OK
+database_name
+hive
+Time taken: 0.022 seconds, Fetched: 1 row(s)
+</code></pre>
+<h4 id="2-查看数据库详情"><a href="#2-查看数据库详情" class="headerlink" title="2.查看数据库详情"></a>2.查看数据库详情</h4><p>显示数据库信息</p>
+<pre><code class="shell">hive (hive)&gt; desc database hive;
+OK
+db_name comment location        owner_name      owner_type      parameters
+hive    hive test       hdfs://master:9000/user/hive/warehouse/hive.db  root    USER
+Time taken: 0.049 seconds, Fetched: 1 row(s)
+</code></pre>
+<p>显示数据库详细信息</p>
+<pre><code class="java">hive (hive)&gt; desc database extended hive;
+OK
+db_name comment location        owner_name      owner_type      parameters
+hive    hive test       hdfs://master:9000/user/hive/warehouse/hive.db  root    USER    &#123;creator=wj&#125;
+Time taken: 0.03 seconds, Fetched: 1 row(s)
+</code></pre>
+<p><code>&#123;creator=wj&#125;</code>为自定义属性，可作为注释使用</p>
+<h3 id="3-1-3-修改数据库"><a href="#3-1-3-修改数据库" class="headerlink" title="3.1.3 修改数据库"></a>3.1.3 修改数据库</h3><p>已经创建的数据库其信息都是不可以修改的，包括数据库名和数据库所在的目录位置等，这里修改数据库指的是修改数据库的<code>dbproperties</code>的键值对</p>
+<pre><code class="shell">hive (test)&gt; alter database test set dbproperties(&#39;creator&#39;=&#39;wj&#39;);
+OK
+Time taken: 0.234 seconds
+</code></pre>
+<h3 id="3-1-4-删除数据库"><a href="#3-1-4-删除数据库" class="headerlink" title="3.1.4 删除数据库"></a>3.1.4 删除数据库</h3><h4 id="1-删除空数据库"><a href="#1-删除空数据库" class="headerlink" title="1.删除空数据库"></a>1.删除空数据库</h4><pre><code class="shell">hive (hive)&gt; drop database d1;
+OK
+Time taken: 0.435 seconds
+</code></pre>
+<h4 id="2-强制删除数据库"><a href="#2-强制删除数据库" class="headerlink" title="2.强制删除数据库"></a>2.强制删除数据库</h4><p>对于非空数据库，上述命令无法删除</p>
+<pre><code class="shell">hive (d1)&gt; drop database d1;
+FAILED: Execution Error, return code 1 from org.apache.hadoop.hive.ql.exec.DDLTask. InvalidOperationException(message:Database d1 is not empty. One or more tables exist.)
+</code></pre>
+<p>因此可以使用<code>cascade</code>进行强制删除</p>
+<pre><code class="shell">hive (d1)&gt; drop database d1 cascade;
+OK
+Time taken: 0.231 seconds
+</code></pre>
+<h2 id="3-2-表操作"><a href="#3-2-表操作" class="headerlink" title="3.2 表操作"></a>3.2 表操作</h2><h3 id="3-2-1-创建表"><a href="#3-2-1-创建表" class="headerlink" title="3.2.1 创建表"></a>3.2.1 创建表</h3><p>标准语句</p>
+<pre><code class="shell">create [external] table [if not exists] table_name
+[(col_name data_type [comment col_comment],...)]
+[comment table_comment]
+[partitioned by (col_name data_type [col_name data_type],...)]
+[clustered by (col_name,col_name)]
+[row format ...]
+[collection items ...]
+[map keys ...]
+[location hdfs_path]
+</code></pre>
+<h3 id="3-2-2-修改表"><a href="#3-2-2-修改表" class="headerlink" title="3.2.2 修改表"></a>3.2.2 修改表</h3><h4 id="1-表的重命名"><a href="#1-表的重命名" class="headerlink" title="1.表的重命名"></a>1.表的重命名</h4><pre><code class="shell">hive (hive)&gt; alter table emp rename to tbl_emp;
+OK
+Time taken: 0.215 seconds
+hive (hive)&gt; show tables;
+OK
+tab_name
+score
+student
+tbl_1
+tbl_2
+tbl_3
+tbl_4
+tbl_emp
+Time taken: 0.025 seconds, Fetched: 7 row(s)
+</code></pre>
+<h4 id="2-添加列"><a href="#2-添加列" class="headerlink" title="2.添加列"></a>2.添加列</h4><pre><code class="shell">hive (hive)&gt; alter table tbl_emp add columns(emp_id int);
+OK
+Time taken: 0.147 seconds
+</code></pre>
+<h4 id="3-修改列"><a href="#3-修改列" class="headerlink" title="3.修改列"></a>3.修改列</h4><p>包括修改列名，列属性</p>
+<pre><code class="shell">hive (hive)&gt; alter table tbl_emp change emp_id c_emp_id string;
+OK
+Time taken: 0.234 seconds
+</code></pre>
+<p>替换列</p>
+<pre><code class="shell">hive (hive)&gt; alter table tbl_emp replace columns(s_id string,c_id string,c_grade string);
+OK
+Time taken: 0.157 seconds
+</code></pre>
+<h3 id="3-2-3-删除表"><a href="#3-2-3-删除表" class="headerlink" title="3.2.3 删除表"></a>3.2.3 删除表</h3><pre><code class="shell">hive (hive)&gt; drop table tbl_emp;
+OK
+Time taken: 0.227 seconds
+</code></pre>
+<h3 id="3-2-4-内-外部表"><a href="#3-2-4-内-外部表" class="headerlink" title="3.2.4 内/外部表"></a>3.2.4 内/外部表</h3><h4 id="1-内部表"><a href="#1-内部表" class="headerlink" title="1.内部表"></a>1.内部表</h4><p>又称管理表（MANAGED_TABLE），因为对应的表叫外部表（EXTERNAL_TABLE）所以喜欢叫它外部表，创建表默认是内部表，删除表时元数据和hdfs内数据均会被删除</p>
+<h4 id="2-外部表"><a href="#2-外部表" class="headerlink" title="2.外部表"></a>2.外部表</h4><p>与内部表对立，删除外部表时仅删除元数据hdfs内的数据不会被删除，再次创建同名表数据会”恢复”，即hive并非认为其完全拥有此表，创建外部表命令如下：</p>
+<pre><code class="shell">hive (hive)&gt; create external table tbl_5(id int,name string);
+OK
+Time taken: 0.183 seconds
+hive (hive)&gt; desc formatted tbl_5;
+OK
+col_name        data_type       comment
+# col_name              data_type               comment
+id                      int
+name                    string
+
+# Detailed Table Information
+Database:               hive
+OwnerType:              USER
+Owner:                  root
+CreateTime:             Thu Aug 27 19:57:54 CST 2020
+LastAccessTime:         UNKNOWN
+Retention:              0
+Location:               hdfs://master:9000/user/hive/warehouse/hive.db/tbl_5
+Table Type:             EXTERNAL_TABLE
+</code></pre>
+<h4 id="3-内外部表转换"><a href="#3-内外部表转换" class="headerlink" title="3.内外部表转换"></a>3.内外部表转换</h4><p>内部表 -&gt; 外部表</p>
+<pre><code class="shell">hive (hive)&gt; alter table tbl_4 set tblproperties(&#39;EXTERNAL&#39;=&#39;TRUE&#39;);
+OK
+Time taken: 0.13 seconds
+</code></pre>
+<p>外部表 -&gt; 内部表</p>
+<pre><code class="shell">hive (hive)&gt; alter table tbl_4 set tblproperties(&#39;EXTERNAL&#39;=&#39;FALSE&#39;);
+OK
+Time taken: 0.13 seconds
+</code></pre>
+<h4 id="4-应用场景"><a href="#4-应用场景" class="headerlink" title="4.应用场景"></a>4.应用场景</h4><p>在实际生产环境中，涉及到共享数据一定要使用外部表，防止误操作导致的数据丢失，对于个人使用，数据分析的中间表可以使用内部表，方便管理。</p>
+<h3 id="3-2-5-分区表"><a href="#3-2-5-分区表" class="headerlink" title="3.2.5 分区表"></a>3.2.5 分区表</h3><p>假设Hive的数仓存储了一年的数据，现在需要查找出某一天的数据，当使用where语句时，Hive会对该表（文件夹）下所有数据进行全表扫描，从而导致查询效率低；因此引入分区表概念来优化查询（有谓词下推的意思）</p>
+<h4 id="1-创建分区表"><a href="#1-创建分区表" class="headerlink" title="1.创建分区表"></a>1.创建分区表</h4><pre><code class="shell">hive (hive)&gt; create table tbl_6(id int,name string) partitioned by(month string) row format delimited fields terminated by &#39;\t&#39;;
+OK
+Time taken: 0.106 seconds
+</code></pre>
+<p>在创建表语法后加<code>partitioned by (col_name data_type)</code></p>
+<h4 id="2-导入数据"><a href="#2-导入数据" class="headerlink" title="2.导入数据"></a>2.导入数据</h4><p>需要注意的是当创建的是分区表时加载数据需要添加上分区信息否则会保存（因为hive不知道要把数据put到哪个文件夹）</p>
+<pre><code class="shell">hive (hive)&gt; load data local inpath &#39;/usr/local/soft/hive-3.2.1/data/test_partition&#39; into table tbl_6 partition(month=&#39;2020-08&#39;);
+Loading data to table hive.tbl_6 partition (month=&#39;2020-08&#39;)
+OK
+Time taken: 0.782 seconds
+hive (hive)&gt; select * from tbl_6;
+OK
+tbl_6.id        tbl_6.name      tbl_6.month
+1       tzhangsan       2020-08
+2       tlisi   2020-08
+3       twangwu 2020-08
+Time taken: 0.141 seconds, Fetched: 3 row(s)
+</code></pre>
+<p>可以发现分区字段会自动加到表的数据中（原始数据文件不会被添加，hive自己做的处理，在读取数据的时候自动添加分区字段数据），添加多个分区后</p>
+<pre><code class="shell">hive (hive)&gt; load data local inpath &#39;/usr/local/soft/hive-3.2.1/data/test_partition&#39; into table tbl_6 partition(month=&#39;2020-09&#39;);
+Loading data to table hive.tbl_6 partition (month=&#39;2020-09&#39;)
+OK
+Time taken: 0.634 seconds
+</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/20200829193223344.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<p>因此分区的本质就是分文件夹，文件夹以分区名命名，不同分区的数据被放在不同文件夹下，这样的好处是当执行where查询时，hive会直接去指定的分区文件夹下扫描数据，效率将大幅提高。</p>
+<h4 id="3-操作分区"><a href="#3-操作分区" class="headerlink" title="3.操作分区"></a>3.操作分区</h4><p>添加分区（本质就是创建文件夹）</p>
+<pre><code class="shell">hive (hive)&gt; alter table tbl_6 add partition(month=&#39;2020-10&#39;);
+OK
+Time taken: 0.169 seconds
+</code></pre>
+<p>删除分区（本质就是删除文件夹）</p>
+<pre><code class="shell">hive (hive)&gt; alter table tbl_6 drop partition(month=&#39;2020-10&#39;);
+OK
+Time taken: 0.269 seconds
+</code></pre>
+<p>创建二级分区</p>
+<pre><code class="shell">hive (hive)&gt; create table tbl_6(id int,name string) partitioned by(month string,day string) 
+row format delimited fields terminated by &#39;\t&#39;;
+OK
+Time taken: 0.106 seconds
+</code></pre>
+<p>理论、操作都一样，多级分区上限没有限制（适可而止）,结合上面知识，向分区表插入数据也可以直接put文件到指定路径</p>
+<p>查看分区</p>
+<pre><code class="shell">hive (hive)&gt; show partitions tbl_6;
+OK
+partition
+month=2020-08
+month=2020-09
+month=2020-10
+Time taken: 0.127 seconds, Fetched: 3 row(s)
+</code></pre>
+<h1 id="四、DML-数据操作语言"><a href="#四、DML-数据操作语言" class="headerlink" title="四、DML 数据操作语言"></a>四、DML 数据操作语言</h1><h2 id="4-1-数据导入"><a href="#4-1-数据导入" class="headerlink" title="4.1 数据导入"></a>4.1 数据导入</h2><h3 id="4-1-1-向表中转载数据（load）"><a href="#4-1-1-向表中转载数据（load）" class="headerlink" title="4.1.1 向表中转载数据（load）"></a>4.1.1 向表中转载数据（load）</h3><h4 id="1-标准语法"><a href="#1-标准语法" class="headerlink" title="1.标准语法"></a>1.标准语法</h4><pre><code class="shell">load data [local] inpath path [overwrite] into table table_name [partition(p1=v1,...)]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th align="center">args</th>
+<th align="center">explain</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">load data</td>
+<td align="center">加载数据</td>
+</tr>
+<tr>
+<td align="center">local</td>
+<td align="center">加载本地文件，不加默认加载hdfs</td>
+</tr>
+<tr>
+<td align="center">inpath path</td>
+<td align="center">加载数据文件的路径</td>
+</tr>
+<tr>
+<td align="center">overwrite</td>
+<td align="center">覆盖已有数据</td>
+</tr>
+<tr>
+<td align="center">into table</td>
+<td align="center">追加数据</td>
+</tr>
+<tr>
+<td align="center">table_name</td>
+<td align="center">具体的表名</td>
+</tr>
+<tr>
+<td align="center">partition</td>
+<td align="center">加载数据到指定分区</td>
+</tr>
+</tbody></table>
+<h4 id="2-操作案例"><a href="#2-操作案例" class="headerlink" title="2.操作案例"></a>2.操作案例</h4><p>见2.3 Hive常规操作</p>
+<h3 id="4-1-2-insert"><a href="#4-1-2-insert" class="headerlink" title="4.1.2 insert"></a>4.1.2 insert</h3><p>insert插入分区表，真不推荐使用这个</p>
+<pre><code class="shell">hive (hive)&gt; insert into tbl_6 partition(month=&#39;2020-07&#39;) values(4,&#39;zhaoliu&#39;);
+</code></pre>
+<p>基本插入模式，根据查询的结果插入数据</p>
+<pre><code class="shell">hive (hive)&gt; insert into table tbl_5 select * from tbl_1;
+</code></pre>
+<pre><code class="shell">hive (hive)&gt; insert overwrite table tbl_5 select * from tbl_1;
+</code></pre>
+<h3 id="4-1-3-as-select"><a href="#4-1-3-as-select" class="headerlink" title="4.1.3 as select"></a>4.1.3 as select</h3><pre><code class="shell">hive (hive)&gt; create table tbl_7 as select * from tbl_6;
+</code></pre>
+<h3 id="4-1-4-export"><a href="#4-1-4-export" class="headerlink" title="4.1.4 export"></a>4.1.4 export</h3><p>只能搭配import使用，见下面的inport用法</p>
+<h2 id="4-2-数据导出"><a href="#4-2-数据导出" class="headerlink" title="4.2 数据导出"></a>4.2 数据导出</h2><h3 id="4-2-1-insert"><a href="#4-2-1-insert" class="headerlink" title="4.2.1 insert"></a>4.2.1 insert</h3><pre><code class="shell">hive (hive)&gt; insert overwrite local directory &#39;/tmp/hive&#39; select * from tbl_6;
+</code></pre>
+<pre><code class="shell">[root@master data]# cd /tmp/hive/
+[root@master hive]# ll
+总用量 4
+-rw-r--r--. 1 root root 108 8月  27 20:55 000000_0
+[root@master hive]# cat 000000_0
+1tzhangsan2020-08
+2tlisi2020-08
+3twangwu2020-08
+1tzhangsan2020-09
+2tlisi2020-09
+3twangwu2020-09
+</code></pre>
+<p>导出的数据会把导出路径下的所有文件进行覆盖，一定要写一个不存在的路径。但cat文件发现数据不友好，因此需要格式化导出数据</p>
+<pre><code class="shell">hive (hive)&gt; insert overwrite local directory &#39;/tmp/hive&#39; row format delimited fields terminated by &#39;\t&#39; select * from tbl_6;
+</code></pre>
+<pre><code class="shell">[root@master hive]# cat 000000_0
+1       tzhangsan       2020-08
+2       tlisi   2020-08
+3       twangwu 2020-08
+1       tzhangsan       2020-09
+2       tlisi   2020-09
+3       twangwu 2020-09
+</code></pre>
+<h3 id="4-2-2-hive-shell"><a href="#4-2-2-hive-shell" class="headerlink" title="4.2.2 hive shell"></a>4.2.2 hive shell</h3><p>不常用hive -e ‘sql’ &gt; file 利用linux的重定向</p>
+<h3 id="4-2-3-export-import"><a href="#4-2-3-export-import" class="headerlink" title="4.2.3 export/import"></a>4.2.3 export/import</h3><p>先导出后导入</p>
+<pre><code class="shell">hive (hive)&gt; export table tbl_1 to &#39;/hive&#39;;
+OK
+Time taken: 0.117 seconds
+hive (hive)&gt; truncate table tbl_1;
+OK
+Time taken: 0.149 seconds
+hive (hive)&gt; select * from tbl_1;
+OK
+tbl_1.id        tbl_1.name
+Time taken: 0.141 seconds
+hive (hive)&gt; import table tbl_1 from &#39;/hive&#39;;
+Copying data from hdfs://master:9000/hive/data
+Copying file: hdfs://master:9000/hive/data/000000_0
+Loading data to table hive.tbl_1
+OK
+Time taken: 0.197 seconds
+</code></pre>
+<h1 id="五、DQL-数据查询语言"><a href="#五、DQL-数据查询语言" class="headerlink" title="五、DQL 数据查询语言"></a>五、DQL 数据查询语言</h1><h2 id="5-1-本地模式"><a href="#5-1-本地模式" class="headerlink" title="5.1 本地模式"></a>5.1 本地模式</h2><p>对于数据量小，学习一些操作命令可以将hive的运行模式设置成本地模式。对于小数据集可以明显的缩短时间，通过如下配置</p>
+<pre><code class="shell">//开启本地模式
+set hive.exec.mode.local.auto=true;
+//设置local mr最大输入数据量，当数据量小于这个值（默认128M）时使用local mr
+set hive.exec.mode.local.auto.inputbytes.max=50000000;
+//设置local mr最大输入文件数，当文件数小于这个值（默认4）时使用local mr
+set hive.exec.mode.local.auto.input.files.max=10;
+</code></pre>
+<p>关闭本地模式</p>
+<pre><code class="shell">set hive.exec.mode.local.auto=true;
+</code></pre>
+<h2 id="5-2-基本查询"><a href="#5-2-基本查询" class="headerlink" title="5.2 基本查询"></a>5.2 基本查询</h2><p>和mysql语法一致，基本语法</p>
+<pre><code class="sql">select ... from table_name
+</code></pre>
+<h3 id="5-2-1-全表和特定字段查询"><a href="#5-2-1-全表和特定字段查询" class="headerlink" title="5.2.1 全表和特定字段查询"></a>5.2.1 全表和特定字段查询</h3><h4 id="1-全表查询"><a href="#1-全表查询" class="headerlink" title="1.全表查询"></a>1.全表查询</h4><pre><code class="sql">select * from student;
+</code></pre>
+<h4 id="2-特定字段查询"><a href="#2-特定字段查询" class="headerlink" title="2.特定字段查询"></a>2.特定字段查询</h4><pre><code class="sql">select st_id,st_name from student;
+</code></pre>
+<p>总结：</p>
+<ol>
+<li>HQL语法不区分大小写</li>
+<li>HQL可以写一行也可以写多行</li>
+<li>关键字不能被缩写或换行</li>
+<li>字句一般分行写</li>
+<li>多使用缩进提高代码可读性</li>
+</ol>
+<h3 id="5-2-2-列起别名"><a href="#5-2-2-列起别名" class="headerlink" title="5.2.2 列起别名"></a>5.2.2 列起别名</h3><p>基本语法，as可以省略</p>
+<pre><code class="sql">select st_id as id,st_name name from student;
+</code></pre>
+<h3 id="5-2-3-算术运算符"><a href="#5-2-3-算术运算符" class="headerlink" title="5.2.3 算术运算符"></a>5.2.3 算术运算符</h3><table>
+<thead>
+<tr>
+<th align="center">运算符</th>
+<th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">A+B</td>
+<td align="center">A和B相加</td>
+</tr>
+<tr>
+<td align="center">A-B</td>
+<td align="center">A减去B</td>
+</tr>
+<tr>
+<td align="center">A*B</td>
+<td align="center">A和B相乘</td>
+</tr>
+<tr>
+<td align="center">A/B</td>
+<td align="center">A除以B</td>
+</tr>
+<tr>
+<td align="center">A%B</td>
+<td align="center">A对B取余</td>
+</tr>
+<tr>
+<td align="center">A&amp;B</td>
+<td align="center">A和B按位取与</td>
+</tr>
+<tr>
+<td align="center">A|B</td>
+<td align="center">A和B按位取或</td>
+</tr>
+<tr>
+<td align="center">A^B</td>
+<td align="center">A和B按位取异或</td>
+</tr>
+<tr>
+<td align="center">~A</td>
+<td align="center">A按位取反</td>
+</tr>
+</tbody></table>
+<h3 id="5-2-4-limit-语句"><a href="#5-2-4-limit-语句" class="headerlink" title="5.2.4 limit 语句"></a>5.2.4 limit 语句</h3><p>基本语法</p>
+<pre><code class="sql">select st_id,st_name from student limit 2;
+</code></pre>
+<h3 id="5-2-5-where-语句"><a href="#5-2-5-where-语句" class="headerlink" title="5.2.5 where 语句"></a>5.2.5 where 语句</h3><p>和mysql语法一致，基本语法</p>
+<pre><code class="sql">select * from student where st_age &gt; 20;
+</code></pre>
+<h4 id="1-比较运算符"><a href="#1-比较运算符" class="headerlink" title="1.比较运算符"></a>1.比较运算符</h4><table>
+<thead>
+<tr>
+<th align="center">操作符</th>
+<th align="center">支持的数据类型</th>
+<th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">A=B</td>
+<td align="center">基本数据类型</td>
+<td align="center">如果A等于B则返回TRUE，反之返回FALSE</td>
+</tr>
+<tr>
+<td align="center">A!=B</td>
+<td align="center">基本数据类型</td>
+<td align="center">如果A不等于B，则返回TRUE，反之返回FALSE</td>
+</tr>
+<tr>
+<td align="center">A&lt;B</td>
+<td align="center">基本数据类型</td>
+<td align="center">如果A小于B，则返回TRUE，反之返回FALSE</td>
+</tr>
+<tr>
+<td align="center">A&lt;=B</td>
+<td align="center">基本数据类型</td>
+<td align="center">如果A小于等于B，则返回TRUE，反之返回FALSE</td>
+</tr>
+<tr>
+<td align="center">A&gt;B</td>
+<td align="center">基本数据类型</td>
+<td align="center">如果A大于B，则返回TRUE，反之返回FALSE</td>
+</tr>
+<tr>
+<td align="center">A&gt;=B</td>
+<td align="center">基本数据类型</td>
+<td align="center">如果A大于等于B，则返回TRUE，反之返回FALSE</td>
+</tr>
+<tr>
+<td align="center">A [NOT] BETWEEN B AND C</td>
+<td align="center">基本数据类型</td>
+<td align="center">如果A的值大于等于B而且小于或等于C，则结果为TRUE，反之为FALSE。如果使用NOT关键字则可达到相反的效果。</td>
+</tr>
+<tr>
+<td align="center">A IS NULL</td>
+<td align="center">所有数据类型</td>
+<td align="center">如果A等于NULL，则返回TRUE，反之返回FALSE</td>
+</tr>
+<tr>
+<td align="center">A IS NOT NULL</td>
+<td align="center">所有数据类型</td>
+<td align="center">如果A不等于NULL，则返回TRUE，反之返回FALSE</td>
+</tr>
+<tr>
+<td align="center">IN(数值1, 数值2)</td>
+<td align="center">所有数据类型</td>
+<td align="center">等于数值1、数值2，返回TRUE</td>
+</tr>
+<tr>
+<td align="center">A [NOT] LIKE B</td>
+<td align="center">STRING 类型</td>
+<td align="center">B是一个SQL下的简单正则表达式，如果A与其匹配的话，则返回TRUE；反之返回FALSE。B的表达式说明如下：’x%’表示A必须以字母’x’开头，’%x’表示A必须以字母’x’结尾，而’%x%’表示A包含有字母’x’,可以位于开头，结尾或者字符串中间。如果使用NOT关键字则可达到相反的效果。</td>
+</tr>
+</tbody></table>
+<h4 id="2-逻辑运算符"><a href="#2-逻辑运算符" class="headerlink" title="2.逻辑运算符"></a>2.逻辑运算符</h4><table>
+<thead>
+<tr>
+<th align="center">操作符</th>
+<th align="center">含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">AND</td>
+<td align="center">逻辑并</td>
+</tr>
+<tr>
+<td align="center">OR</td>
+<td align="center">逻辑或</td>
+</tr>
+<tr>
+<td align="center">NOT</td>
+<td align="center">逻辑否</td>
+</tr>
+</tbody></table>
+<h2 id="5-4-分组查询"><a href="#5-4-分组查询" class="headerlink" title="5.4 分组查询"></a>5.4 分组查询</h2><p>和mysql语法一致</p>
+<h3 id="5-4-1-group-by"><a href="#5-4-1-group-by" class="headerlink" title="5.4.1 group by"></a>5.4.1 group by</h3><p>group by语句通常会和聚合函数（count、max、min、avg、sum）一起使用，按照一个或者多个列队结果进行分组，然后对每个组执行聚合操作。同样select的字段必须出现在group by后或者聚合函数里</p>
+<pre><code class="sql">select st_dept,count(*) from student group by st_dept;
+</code></pre>
+<h3 id="5-4-2-having"><a href="#5-4-2-having" class="headerlink" title="5.4.2 having"></a>5.4.2 having</h3><p>用法和mysql一样</p>
+<p>having和where区别：</p>
+<ol>
+<li>where对表中的列发挥作用，having对查询结果的列发挥作用</li>
+<li>where后面不能接聚合函数，having后面可以接聚合函数</li>
+<li>having只能用在group by后面</li>
+</ol>
+<h2 id="5-5-连接查询"><a href="#5-5-连接查询" class="headerlink" title="5.5 连接查询"></a>5.5 连接查询</h2><h3 id="5-5-1-等值连接"><a href="#5-5-1-等值连接" class="headerlink" title="5.5.1 等值连接"></a>5.5.1 等值连接</h3><p>Hive只支持等值连接，不支持非等值连接，其用法可mysql语法一致</p>
+<h3 id="5-5-2-总结"><a href="#5-5-2-总结" class="headerlink" title="5.5.2 总结"></a>5.5.2 总结</h3><p>内连接、左连接、右连接、满连接、多表连接、笛卡尔积都和mysql语法一致</p>
+<h2 id="5-6-排序"><a href="#5-6-排序" class="headerlink" title="5.6 排序"></a>5.6 排序</h2><p>hive的排序将会和mysql有很大的区别，为了更好的展现hive的排序，需要了解hive配置</p>
+<pre><code class="shell">hive (hive)&gt; set mapreduce.job.reduces;
+mapreduce.job.reduces=-1
+</code></pre>
+<p>设置reduce个数，默认-1会根据sql、数据量等动态规划reduce个数，通过设置大于0的数来规定reduce个数</p>
+<h3 id="5-6-1-全局排序"><a href="#5-6-1-全局排序" class="headerlink" title="5.6.1 全局排序"></a>5.6.1 全局排序</h3><p>就是MapReduce的全局排序，在hive中体现为order by对应一个reduce，因为站在MapReduce角度全局排序必须输出一个文件因此必须只有一个reduce。</p>
+<h4 id="1-使用"><a href="#1-使用" class="headerlink" title="1.使用"></a>1.使用</h4><pre><code class="sql">select * from student order by age;
+</code></pre>
+<p>同样默认升序（asc），可以按降序排序（desc）</p>
+<h4 id="2-细节"><a href="#2-细节" class="headerlink" title="2.细节"></a>2.细节</h4><p>当使用order by排序是会启动一个reduce，那么当手动设置reduce个数最终会启动几个reduce呢？</p>
+<pre><code class="sql">//设置reduce个数为3
+hive (test)&gt; set mapreduce.job.reduces=3;
+hive (test)&gt; select * from student order by age;
+Query ID = root_20200829092604_3b647fd2-3d10-46ac-b498-0f34941dee6a
+Total jobs = 1
+Launching Job 1 out of 1
+...
+Hadoop job information for Stage-1: number of mappers: 1; number of reducers: 1
+</code></pre>
+<p>提交一个job，启动一个reduce，发现无论设置多少个reduce个数全局排序就只会启动一个redcue。</p>
+<h4 id="3-补充"><a href="#3-补充" class="headerlink" title="3.补充"></a>3.补充</h4><p>支持别名排序</p>
+<pre><code class="sql">select stu_id id  from student order by id;
+</code></pre>
+<p>支持多个字段排序</p>
+<pre><code class="sql">hive (test)&gt; select * from student order by age,stu_id;
+</code></pre>
+<h3 id="5-6-2-局部排序"><a href="#5-6-2-局部排序" class="headerlink" title="5.6.2 局部排序"></a>5.6.2 局部排序</h3><p>对应MapReduce多个reduce，每个reduce局部有序，不一定保证全局有序，hive中通过sort by实现。</p>
+<p>设置reduce个数为三</p>
+<pre><code class="sql">set mapreduce.job.reduces=3;
+</code></pre>
+<p>具体实现</p>
+<pre><code class="sql">hive (test)&gt; select * from emp sort by deptno desc;
+...
+Hadoop job information for Stage-1: number of mappers: 1; number of reducers: 3
+</code></pre>
+<p>结果如下<br><img src="https://img-blog.csdnimg.cn/20200829193303627.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<p>可以大致看出是分三个区（三个reduce即对应三个分区），当然可以将结果输出到文件中可以发现也是三个文件</p>
+<pre><code class="sql">insert overwrite local directory &#39;/tmp/hive&#39; 
+select * from emp sort by deptno desc;
+</code></pre>
+<p>但问题是在MapReduce中分区默认为HashPartitioner根据key的hash和reduce个数取余，那么hive是怎么实现分区呢？按照哪（几）个字段实现分区？从官方文档可以找到答案，按照上述没有指定分区的hql来说hive通过随机值的形式分区。<br><img src="https://img-blog.csdnimg.cn/20200829193252440.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<p>为什么？当我们没有指定字段分区时，若hive还按照字段进行分区万一导致数据倾斜问题该找谁呢？所以hive通过随机加载的形式尽可能减少数据倾斜的发生。</p>
+<h3 id="5-6-3-分区排序"><a href="#5-6-3-分区排序" class="headerlink" title="5.6.3 分区排序"></a>5.6.3 分区排序</h3><p>distribute by：类似MapReduce的partition，通过指定某个字段进行分区（HashPartitioner）结合sort by从而达到分区内有序</p>
+<p>按照部门id分区，分区内按照薪资升序排序</p>
+<pre><code class="sql">hive (test)&gt; select * from emp distribute by deptno sort by sal;
+</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/20200829193317172.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<h3 id="5-6-4-cluster-by"><a href="#5-6-4-cluster-by" class="headerlink" title="5.6.4 cluster by"></a>5.6.4 cluster by</h3><p>当distribute by和sort by字段一致时可以使用cluster by代替，因此distribute by兼顾分区和排序两个功能，但是cluster by排序只支持降序排序，不能指定desc或asc一句话</p>
+<pre><code class="sql">cluster by col &lt;=&gt; distribute by col sort by col
+</code></pre>
+<p>那么有人就问了对一个字段分区又排序的意义可在？当我们数据有很多是，分区数少但该字段类型有很多种，因此就会有很多字段进入同一个分区，在对同一个分区按照该字段排序。</p>
+<h3 id="5-6-5-总结"><a href="#5-6-5-总结" class="headerlink" title="5.6.5 总结"></a>5.6.5 总结</h3><table>
+<thead>
+<tr>
+<th align="center">语法</th>
+<th align="center">总结</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">group by</td>
+<td align="center">对字段进行分区，将相同字段再进行分区，后面会接聚合操作</td>
+</tr>
+<tr>
+<td align="center">distribute by</td>
+<td align="center">仅对字段进行分区</td>
+</tr>
+<tr>
+<td align="center">order by</td>
+<td align="center">全局排序，只会起一个reduce</td>
+</tr>
+<tr>
+<td align="center">sort by</td>
+<td align="center">局部排序，若设置reduce个数为1则和order by一样</td>
+</tr>
+</tbody></table>
+<h2 id="5-7-分桶表"><a href="#5-7-分桶表" class="headerlink" title="5.7 分桶表"></a>5.7 分桶表</h2><p>请区别于分区表（我觉得这两张表的名字起得不太友好），学完发现分区表仅是数据分开存储，分桶表则对应MR的分区，将数据文件分开存储；注意分区表针对的是数据的存储路径，将一个个文件分文件夹存储，分桶表则是对一个个文件进行分区，一个分区对应一个文件即对一份数据文件进行了拆分。</p>
+<p>分区提供一个数据隔离和优化查询的便利方式，但不是所有的数据集都能形成比较好的分区；分桶则是将数据集拆分成更容易管理的若干部分的另一种手段。</p>
+<h3 id="5-7-1-创建分桶表"><a href="#5-7-1-创建分桶表" class="headerlink" title="5.7.1 创建分桶表"></a>5.7.1 创建分桶表</h3><pre><code class="sql">create table stu_buck(id int, name string)
+clustered by(id) into 4 buckets
+row format delimited fields terminated by &#39;\t&#39;;
+</code></pre>
+<p>分桶表使用clustered by（注意和分区排序区分开）且字段要是表中的字段（分区字段不能是表中字段）且分4个桶</p>
+<p>查看表结构</p>
+<pre><code class="sql">hive (test)&gt;  desc formatted stu_buck;
+</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/20200829193333844.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<p>加载数据到分桶表中，加载之前要确保<code>mapreduce.job.reduces=-1</code>这样hive会根据分桶表中的分桶数自动创建对应数量的reduce数<br><img src="https://img-blog.csdnimg.cn/2020082919335430.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"><br>大致可以看出按照id的hash值取余<br><img src="https://img-blog.csdnimg.cn/20200829193411692.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<p>看了很多的文章发现创建分桶表步骤很多，首先开启分桶开关之类的，但发现在hive 3.1.2版本这个配置已经不存在了</p>
+<pre><code class="sql">hive (test)&gt; set hive.enforce.bucketing;
+hive.enforce.bucketing is undefined
+</code></pre>
+<p>通过阅读官方文档发现hive 2.x直接load数据即可，不需要通过创建中间表，再通过中间表走MR插入到分桶表的形式来加载数据了<br><img src="https://img-blog.csdnimg.cn/20200829193424121.png#pic_center" alt="在这里插入图片描述"></p>
+<h3 id="5-7-2-分桶表应用"><a href="#5-7-2-分桶表应用" class="headerlink" title="5.7.2 分桶表应用"></a>5.7.2 分桶表应用</h3><p>对于分桶表主要用于抽样查询中，在一个庞大的数据集中往往需要一个代表性查询结果而不是全部查询结果，因此hive通过抽样语句来实现抽样查询</p>
+<pre><code class="sql">tablesample(bucket x out of y on col)
+</code></pre>
+<p>col：为分桶字段</p>
+<p>x：表示从哪个桶开始抽取</p>
+<p>y：必须是分桶数的倍数或者因子，决定抽样的比例。如假设分桶数为4，当y=2时，抽取(4/2)=2个桶的数据；当y=4时，抽取(4/4)=1个桶的数据；当y=8时，抽取(4/8)=1/2个桶的数据</p>
+<p>假设分桶数z：z/y&gt;1，则最终取x，x+z/y+z/y*2…</p>
+<pre><code class="sql">tablesample(bucket 1 out of 2 on id)
+</code></pre>
+<p>即从第一个桶开始抽，抽取两个桶的数据，也就是抽取1，3两个桶中的数据</p>
+<p>因此tablesample要求<code>x &lt;= y</code>，因为抽取的最后一个为</p>
+<pre><code>x+(z/y-1)*y =&gt; x+z-y &lt;= z =&gt; x &lt;= y
+</code></pre>
+<p>若x &gt; y会报<code>FAILED: SemanticException [Error 10061]: Numerator should not be bigger than denominator in sample clause for table stu_buck</code></p>
+<h1 id="六、函数"><a href="#六、函数" class="headerlink" title="六、函数"></a>六、函数</h1><p>hive的函数和mysql一样分为系统内置函数和用户自定义函数，只是自定义函数和mysql将会有巨大差别</p>
+<p>查看系统内置函数</p>
+<pre><code class="sql">hive (test)&gt; show functions;
+</code></pre>
+<p>查看内置函数用法</p>
+<pre><code class="sql">hive (test)&gt; desc function upper;
+</code></pre>
+<p>查看内置函数详细用法</p>
+<pre><code class="sql">hive (test)&gt; desc function extended upper;
+</code></pre>
+<h2 id="6-1-系统内置函数"><a href="#6-1-系统内置函数" class="headerlink" title="6.1 系统内置函数"></a>6.1 系统内置函数</h2><p>下面列举常用的内置函数，主要介绍和mysql不同的部分（带*的）[一共216个]</p>
+<table>
+<thead>
+<tr>
+<th align="center">function</th>
+<th align="center">explanation</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">round</td>
+<td align="center">四舍五入</td>
+</tr>
+<tr>
+<td align="center">ceil</td>
+<td align="center">向上取整</td>
+</tr>
+<tr>
+<td align="center">floor</td>
+<td align="center">向下取整</td>
+</tr>
+<tr>
+<td align="center">rand</td>
+<td align="center">取0-1随机数</td>
+</tr>
+<tr>
+<td align="center">lower</td>
+<td align="center">转小写</td>
+</tr>
+<tr>
+<td align="center">upper</td>
+<td align="center">转大写</td>
+</tr>
+<tr>
+<td align="center">length</td>
+<td align="center">返回字符串长度</td>
+</tr>
+<tr>
+<td align="center">concat</td>
+<td align="center">字符串拼接</td>
+</tr>
+<tr>
+<td align="center">concat_ws</td>
+<td align="center">指定分隔符拼接</td>
+</tr>
+<tr>
+<td align="center">collect_set</td>
+<td align="center">合并字段*</td>
+</tr>
+<tr>
+<td align="center">substr</td>
+<td align="center">求子串</td>
+</tr>
+<tr>
+<td align="center">trim</td>
+<td align="center">前后去空格</td>
+</tr>
+<tr>
+<td align="center">split</td>
+<td align="center">字符串分割</td>
+</tr>
+<tr>
+<td align="center">to_date</td>
+<td align="center">字符串转日期</td>
+</tr>
+<tr>
+<td align="center">year、month…</td>
+<td align="center">从日期中提取年月日</td>
+</tr>
+<tr>
+<td align="center">from_unixtime</td>
+<td align="center">时间戳转日期*</td>
+</tr>
+<tr>
+<td align="center">unix_timestamp</td>
+<td align="center">日期转时间戳*</td>
+</tr>
+<tr>
+<td align="center">case…when…</td>
+<td align="center">条件函数</td>
+</tr>
+<tr>
+<td align="center">if</td>
+<td align="center">判断函数</td>
+</tr>
+<tr>
+<td align="center">count</td>
+<td align="center">求个数（聚合）</td>
+</tr>
+<tr>
+<td align="center">sum</td>
+<td align="center">求总和（聚合）</td>
+</tr>
+<tr>
+<td align="center">min</td>
+<td align="center">求最小值（聚合）</td>
+</tr>
+<tr>
+<td align="center">max</td>
+<td align="center">求最大值（聚合）</td>
+</tr>
+<tr>
+<td align="center">avg</td>
+<td align="center">求平均值（聚合）</td>
+</tr>
+<tr>
+<td align="center">explode</td>
+<td align="center">膨胀函数*</td>
+</tr>
+<tr>
+<td align="center">lateral view</td>
+<td align="center">拓展explode*</td>
+</tr>
+<tr>
+<td align="center">over</td>
+<td align="center">开窗函数</td>
+</tr>
+</tbody></table>
+<h3 id="6-1-1-collect-set"><a href="#6-1-1-collect-set" class="headerlink" title="6.1.1 collect_set"></a>6.1.1 collect_set</h3><p>通常搭配group by使用，将每个组的数据收集(collect)起来封装成一个集合(set)。<br><img src="https://img-blog.csdnimg.cn/20200829193436932.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<p>具体用法</p>
+<pre><code class="sql">hive (test)&gt; select college,collect_set(stu_name) from student group by college;
+...
+mr
+...
+ES      [&quot;郑楠&quot;,&quot;宋夏&quot;,&quot;刘甜甜&quot;,&quot;张海涛&quot;,&quot;张晓燕&quot;,&quot;张伟&quot;,&quot;刘梦&quot;]
+IS      [&quot;李娜&quot;,&quot;刘勇&quot;,&quot;邓丽丽&quot;,&quot;刘小棠&quot;,&quot;张丽丽&quot;,&quot;孙鹏&quot;]
+MA      [&quot;张婷&quot;,&quot;李学文&quot;,&quot;张海玲&quot;,&quot;高小海&quot;,&quot;刘小鹏&quot;,&quot;郑成功&quot;,&quot;李国伟&quot;,&quot;周宏伟&quot;,&quot;孙海波&quot;]
+</code></pre>
+<p>按学院分组，打印出每个学员信息和每个学院都有哪些学生，使用<code>collect_set</code>函数将同学院学生封装集合</p>
+<h3 id="6-1-2-日期相关"><a href="#6-1-2-日期相关" class="headerlink" title="6.1.2 日期相关"></a>6.1.2 日期相关</h3><p>日期转时间戳 unix_timestamp</p>
+<pre><code class="sql">hive (test)&gt; select unix_timestamp(&#39;2020-08-29 14:14:00&#39;,&#39;yyyy-MM-dd HH:mm:ss&#39;);
+OK
+_c0
+1598710440
+Time taken: 0.24 seconds, Fetched: 1 row(s)
+</code></pre>
+<p>时间戳转日期 from_unixtime</p>
+<pre><code class="sql">hive (test)&gt; select from_unixtime(1598710440,&#39;yyyy-MM-dd HH:mm:ss&#39;);
+OK
+_c0
+2020-08-29 14:14:00
+Time taken: 0.146 seconds, Fetched: 1 row(s)
+</code></pre>
+<h3 id="6-1-3-膨胀函数"><a href="#6-1-3-膨胀函数" class="headerlink" title="6.1.3 膨胀函数"></a>6.1.3 膨胀函数</h3><h4 id="1-explode"><a href="#1-explode" class="headerlink" title="1.explode"></a>1.explode</h4><p>将一行数据转换成列，在hive中只能用于array和map数据类型</p>
+<p>用于array数据类型</p>
+<pre><code class="sql">hive (hive)&gt; select * from tbl_3;
+OK
+tbl_3.name      tbl_3.friends   tbl_3.childress tbl_3.address
+陈小春  [&quot;郑伊健&quot;,&quot;谢天华&quot;]     &#123;&quot;jasper&quot;:3,&quot;baby&quot;:1&#125;   &#123;&quot;street&quot;:&quot;皇后大道&quot;,&quot;city&quot;:&quot;香港&quot;&#125;
+刘烨    [&quot;章子怡&quot;,&quot;孙俪&quot;]       &#123;&quot;诺一&quot;:8,&quot;霓娜&quot;:6&#125;     &#123;&quot;street&quot;:&quot;长安街&quot;,&quot;city&quot;:&quot;北京&quot;&#125;
+Time taken: 0.153 seconds, Fetched: 2 row(s)
+
+hive (hive)&gt; select explode(friends) as friend from tbl_3;
+OK
+friend
+郑伊健
+谢天华
+章子怡
+孙俪
+Time taken: 0.156 seconds, Fetched: 4 row(s)
+</code></pre>
+<p>用于map数据类型</p>
+<pre><code class="sql">hive (hive)&gt; select explode(childress) as (name,age) from tbl_3;
+OK
+name    age
+jasper  3
+baby    1
+诺一    8
+霓娜    6
+Time taken: 0.133 seconds, Fetched: 4 row(s)
+</code></pre>
+<p>但是explode函数有很大的缺陷</p>
+<ol>
+<li>不能关联原表的其他字段</li>
+<li>不能分组、排序</li>
+<li>不能进行UDTF（用户自定义表生成函数）嵌套</li>
+</ol>
+<h4 id="2-lateral-view"><a href="#2-lateral-view" class="headerlink" title="2.lateral view"></a>2.lateral view</h4><p>lateral view是hive中提供给UDTF的结合，它可以解决UDTF不能添加额外select的问题，其原理是lateral view类似mysql视图，将UDTF（接收一行输入，输出多行，explode就是UDTF）结果保存为一个视图（虚拟表）并和输入行进行join来达连接其他字段的select的目的。</p>
+<p>标准语法</p>
+<pre><code class="sql">lateral view udtf(expression) tableAlias as columnAlias,columnAlias...
+</code></pre>
+<p>udtf(expression)：使用的UDTF函数。如explode()</p>
+<p>tableAlias：表示虚拟表表名</p>
+<p>columnAlias：给虚拟表取的字段名，多个字段用,隔间</p>
+<p>解决explode()带来的不足</p>
+<pre><code class="sql">hive (hive)&gt; select name, friend from tbl_3 lateral view explode(friends) tmp_tbl as friend;
+OK
+name    friend
+陈小春  郑伊健
+陈小春  谢天华
+刘烨    章子怡
+刘烨    孙俪
+Time taken: 0.086 seconds, Fetched: 4 row(s)
+</code></pre>
+<h2 id="6-2-用户自定义函数"><a href="#6-2-用户自定义函数" class="headerlink" title="6.2 用户自定义函数"></a>6.2 用户自定义函数</h2><p>hive中的自定义函数根据输入输出行数分为三种：</p>
+<ul>
+<li>用户定义函数（user-defined function）UDF</li>
+<li>用户定义聚集函数（user-defined aggregate function）UDAF</li>
+<li>用户定义表生成函数（user-defined table-generating）UDTF</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>函数类型</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>UDF</td>
+<td>一行输入一行输出，如字符串类函数</td>
+</tr>
+<tr>
+<td>UDAF</td>
+<td>多行输入一行输出，如聚合函数</td>
+</tr>
+<tr>
+<td>UDTF</td>
+<td>一行输入多行输出，如膨胀函数</td>
+</tr>
+</tbody></table>
+<h3 id="6-2-1-UDF"><a href="#6-2-1-UDF" class="headerlink" title="6.2.1 UDF"></a>6.2.1 UDF</h3><h4 id="1-编程步骤"><a href="#1-编程步骤" class="headerlink" title="1.编程步骤"></a>1.编程步骤</h4><ol>
+<li>继承<code>org.apache.hadoop.hive.ql.exec.UDF</code></li>
+<li>实现evaluate函数，该函数支持重载</li>
+<li>hive中添加jar包</li>
+<li>创建函数</li>
+<li>使用函数</li>
+<li>删除函数</li>
+</ol>
+<p>注意：UDF必须有返回值，可以返回null，但不能不返回</p>
+<h4 id="2-具体实现"><a href="#2-具体实现" class="headerlink" title="2.具体实现"></a>2.具体实现</h4><p>实现length()函数功能</p>
+<p>1）添加依赖</p>
+<pre><code class="xml">&lt;dependency&gt;
+    &lt;groupId&gt;org.apache.hive&lt;/groupId&gt;
+    &lt;artifactId&gt;hive-exec&lt;/artifactId&gt;
+    &lt;version&gt;3.1.2&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>2）创建类继承UDF</p>
+<pre><code class="java">package hive.udf;
+
+import org.apache.hadoop.hive.ql.exec.UDF;
+
+@SuppressWarnings(&quot;deprecation&quot;)
+public class UDFLength extends UDF &#123;
+
+&#125;
+</code></pre>
+<p>3）实现evaluate函数</p>
+<pre><code class="java">package hive.udf;
+
+import org.apache.hadoop.hive.ql.exec.UDF;
+
+@SuppressWarnings(&quot;deprecation&quot;)
+public class UDFLength extends UDF &#123;
+    public int evaluate(String str) &#123;
+        return str.length();
+    &#125;
+&#125;
+</code></pre>
+<p>4）hive中添加jar包</p>
+<p>将程序达成jar包，放入hive/lib下，这个包下jar在hive启动时会自动加载，当然也可以手动加载jar包</p>
+<pre><code class="sql">hive (hive)&gt; add jar /usr/local/soft/hive-3.2.1/lib/hadoop-1.0-SNAPSHOT.jar;
+Added [/usr/local/soft/hive-3.2.1/lib/hadoop-1.0-SNAPSHOT.jar] to class path
+Added resources: [/usr/local/soft/hive-3.2.1/lib/hadoop-1.0-SNAPSHOT.jar]
+</code></pre>
+<p>5）创建函数</p>
+<p>hive中自定义函数创建时可以分为临时函数和永久函数，对于临时函数仅在当前session，当前数据库起作用。</p>
+<p>标准语法</p>
+<pre><code class="sql">create [temporary] function fun_name as &#39;package.class&#39;;
+</code></pre>
+<pre><code class="sql">hive (hive)&gt; create temporary function getlength as &#39;hive.udf.UDFLength&#39;;
+OK
+Time taken: 0.047 seconds
+</code></pre>
+<p>6）使用函数</p>
+<p>根据逻辑传入一个字符串返回一个int</p>
+<pre><code class="sql">hive (hive)&gt; select *,getlength(st_name) from student;
+OK
+student.st_id   student.st_name student.st_sex  student.st_age  student.st_dept _c1
+10001   郑楠    男      20      ES      2
+10002   李娜    女      19      IS      2
+Time taken: 0.145 seconds, Fetched: 2 row(s)
+</code></pre>
+<pre><code class="sql">hive (hive)&gt; desc function extended getlength;
+OK
+tab_name
+There is no documentation for function &#39;getlength&#39;
+Function class:hive.udf.UDFLength
+Function type:TEMPORARY
+Time taken: 0.017 seconds, Fetched: 3 row(s)
+</code></pre>
+<p>7）删除函数</p>
+<pre><code class="java">hive (hive)&gt; drop function if exists getlength;
+OK
+Time taken: 0.648 seconds
+</code></pre>
+<h3 id="6-2-2-GenericUDF"><a href="#6-2-2-GenericUDF" class="headerlink" title="6.2.2 GenericUDF"></a>6.2.2 GenericUDF</h3><p>UDF类已经过时，hive推荐使用GenericUDF，该类支持更多的数据类型且效率更高</p>
+<pre><code class="java">package hive.udf;
+
+import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
+import org.apache.hadoop.hive.ql.metadata.HiveException;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+
+public class GenericUDFLength extends GenericUDF &#123;
+    @Override
+    public ObjectInspector initialize(ObjectInspector[] arguments) throws UDFArgumentException &#123;
+        return null;
+    &#125;
+
+    @Override
+    public Object evaluate(DeferredObject[] arguments) throws HiveException &#123;
+        return null;
+    &#125;
+
+    @Override
+    public String getDisplayString(String[] children) &#123;
+        return null;
+    &#125;
+&#125;
+</code></pre>
+<ul>
+<li><code>initialize</code>初始化，可以进行参数校验，对象实例化等等</li>
+<li><code>evaluate</code>业务逻辑</li>
+<li><code>getDisplayString</code>显示函数的帮助信息</li>
+</ul>
+<p>那么<code>initialize</code>里面些什么呢？打开一个<code>GenericUDF</code>的实现类<code>GenericUDFCharacterLength</code></p>
+<pre><code class="java">@Description(name = &quot;character_length,char_length&quot;,
+    value = &quot;_FUNC_(str | binary) - Returns the number of characters in str or binary data&quot;,
+    extended = &quot;Example:\n&quot;
+    + &quot;  &gt; SELECT _FUNC_(&#39;안녕하세요&#39;) FROM src LIMIT 1;\n&quot; + &quot;  5&quot;)
+</code></pre>
+<p>这个函数应该是韩国人写的，我们可以看他的<code>initialize</code>返回的是啥</p>
+<pre><code class="java">outputOI = PrimitiveObjectInspectorFactory.writableIntObjectInspector;
+return outputOI;
+</code></pre>
+<p>大致明白通过<code>PrimitiveObjectInspectorFactory</code>里的静态变量返回该函数需要返回的值，推测他的函数应该返回int类型，因此我们也可以直接返回</p>
+<pre><code class="java">@Override
+public Object evaluate(DeferredObject[] arguments) throws HiveException &#123;
+    return null;
+&#125;
+</code></pre>
+<p>这个evaluate显然是优于UDF的，可是让我们函数接受任意多任意类型的值。</p>
+<pre><code class="java">package hive.udf;
+
+import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
+import org.apache.hadoop.hive.ql.metadata.HiveException;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
+import org.apache.hadoop.io.IntWritable;
+
+public class GenericUDFLength extends GenericUDF &#123;
+    IntWritable result = new IntWritable();
+
+    @Override
+    public ObjectInspector initialize(ObjectInspector[] arguments) throws UDFArgumentException &#123;
+        return PrimitiveObjectInspectorFactory.writableIntObjectInspector;
+    &#125;
+
+    @Override
+    public IntWritable evaluate(DeferredObject[] arguments) throws HiveException &#123;
+        if (arguments.length &gt; 1) &#123;
+            System.out.println(&quot;该函数暂时不支持多个参数&quot;);
+            return null;
+        &#125;
+        result.set(arguments[0].get().toString().length());
+        return result;
+    &#125;
+
+    @Override
+    public String getDisplayString(String[] children) &#123;
+        return &quot;获取字符串长度&quot;;
+    &#125;
+&#125;
+</code></pre>
+<pre><code class="sql">hive (default)&gt; create temporary function getlength as &#39;hive.udf.GenericUDFLength&#39;;
+OK
+Time taken: 0.519 seconds
+hive (default)&gt; select getlength(&#39;123&#39;);
+OK
+_c0
+3
+Time taken: 3.072 seconds, Fetched: 1 row(s)
+</code></pre>
+<p>这里有坑，避免java的强制类型转换，返回值建议返回hadoop的数据类型</p>
+<h3 id="6-2-2-UDAF"><a href="#6-2-2-UDAF" class="headerlink" title="6.2.2 UDAF"></a>6.2.2 UDAF</h3><p>UDAF区别于UDF是UDAF需要接受任意多个值后再进行计算后返回，因此UDAF的结构将比UDA复杂</p>
+<h4 id="1-编程步骤-1"><a href="#1-编程步骤-1" class="headerlink" title="1.编程步骤"></a>1.编程步骤</h4><ol>
+<li>函数类继承<code>AbstractGenericUDAFResolver</code>、计算类实现<code>GenericUDAFEvaluator</code>接口</li>
+<li>实现<code>UDAFEvaluator</code>接口的<code>init</code>、<code>iterate</code>、<code>terminatePartial</code>、<code>merge</code>、<code>terminate</code><ol>
+<li><code>init</code>初始化</li>
+<li><code>iterate</code>接收传入参数，进行内部迭代</li>
+<li><code>terminatePartial</code>返回<code>iterate</code>后的数据</li>
+<li><code>merge</code>接收<code>terminatePartial</code>返回结果，进行<code>merge</code>操作</li>
+<li><code>terminate</code>返回最终的结果</li>
+</ol>
+</li>
+</ol>
+<h4 id="2-具体实现-1"><a href="#2-具体实现-1" class="headerlink" title="2.具体实现"></a>2.具体实现</h4><h3 id="6-2-3-UDTF"><a href="#6-2-3-UDTF" class="headerlink" title="6.2.3 UDTF"></a>6.2.3 UDTF</h3><p>实现split函数功能</p>
+<h4 id="1-编程步骤-2"><a href="#1-编程步骤-2" class="headerlink" title="1.编程步骤"></a>1.编程步骤</h4><ol>
+<li>创建一个类继承<code>GenericUDTF</code></li>
+<li>实现<code>initialize</code>、<code>process</code>、<code>close</code>方法</li>
+</ol>
+<p>发现<code>GenericUDTF</code>仅需要我们重写<code>process</code>、<code>close</code>两个方法，实际操作发现会报错，为什么？从<code>GenericUDTF</code>源码可以看出</p>
+<pre><code class="java">public StructObjectInspector initialize(StructObjectInspector argOIs)
+      throws UDFArgumentException &#123;
+    List&lt;? extends StructField&gt; inputFields = argOIs.getAllStructFieldRefs();
+    ObjectInspector[] udtfInputOIs = new ObjectInspector[inputFields.size()];
+    for (int i = 0; i &lt; inputFields.size(); i++) &#123;
+      udtfInputOIs[i] = inputFields.get(i).getFieldObjectInspector();
+    &#125;
+    return initialize(udtfInputOIs);
+  &#125;
+  
+@Deprecated
+  public StructObjectInspector initialize(ObjectInspector[] argOIs)
+      throws UDFArgumentException &#123;
+    throw new IllegalStateException(&quot;Should not be called directly&quot;);
+  &#125;
+</code></pre>
+<p>源码直接抛出异常，因此我们必须重写<code>initialize</code></p>
+<h4 id="2-代码实现"><a href="#2-代码实现" class="headerlink" title="2.代码实现"></a>2.代码实现</h4><p>同理查看别人怎么实现的<code>GenericUDTFJSONTuple</code><br><img src="https://img-blog.csdnimg.cn/20200829193457565.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
+<p>纵观它的初始化逻辑很简单，<code>numCols</code>为方法形参数据的长度，<code>fieldNames</code>保存函数返回值字段名，<code>fieldOIs</code>保存函数返回值类型，因此我们可以写出自己的初始化，同时实现自己的逻辑</p>
+<pre><code class="java">package hive.udtf;
+
+import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
+import org.apache.hadoop.hive.ql.metadata.HiveException;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDTF;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
+import org.apache.hadoop.io.Text;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class UDTFSplit extends GenericUDTF &#123;
+
+    //保存字符串分割后的数据，用于多行输出
+    Text result = new Text();
+
+    public StructObjectInspector initialize(StructObjectInspector argOIs)
+            throws UDFArgumentException &#123;
+        List&lt;String&gt; fieldNames = new ArrayList&lt;&gt;();
+        List&lt;ObjectInspector&gt; fieldOIs = new ArrayList&lt;&gt;();
+        // 这个字段最终会显示为结果的字段名
+        fieldNames.add(&quot;结果&quot;);
+        // 申明函数返回值类型
+        fieldOIs.add(PrimitiveObjectInspectorFactory.writableStringObjectInspector);
+        return ObjectInspectorFactory.getStandardStructObjectInspector(fieldNames, fieldOIs);
+    &#125;
+
+
+    @Override
+    public void process(Object[] args) throws HiveException &#123;
+        if (args.length != 2) &#123;
+            throw new RuntimeException(&quot;参数个数不匹配&quot;);
+        &#125;
+        //第一个参数为待分割的字符串
+        String[] split = args[0].toString().split(args[1].toString());
+        for (String value : split) &#123;
+            result.set(value);
+            //类似context.write()
+            forward(result);
+        &#125;
+    &#125;
+
+    @Override
+    public void close() throws HiveException &#123;
+        //可以在这里实现一些关流操作
+    &#125;
+&#125;
+</code></pre>
+<p>使用</p>
+<pre><code class="java">hive (default)&gt; select udtfsplit(&#39;hello_world_hello_hive&#39;,&#39;_&#39;);
+OK
+结果
+hello
+world
+hello
+hive
+Time taken: 2.406 seconds, Fetched: 4 row(s)
+</code></pre>
+<h1 id="七、企业调优"><a href="#七、企业调优" class="headerlink" title="七、企业调优"></a>七、企业调优</h1><blockquote>
+<p>说实话，关于hive调优没有几年的工作经验是写不出来的，关键面试还贼爱问这个，因此就只能背了（待总结）；实际生产有的不多，为什么呢？对于一般人来说，能把需求的sql写出来就谢天谢地了还祈求什么调优啊，需求都没实现拿什么调优！！！是不是。</p>
+</blockquote>
+<ul>
+<li><input disabled="" type="checkbox"> fetch抓取</li>
+<li><input checked="" disabled="" type="checkbox"> 本地模式</li>
+<li><input disabled="" type="checkbox"> 表的优化</li>
+<li><input disabled="" type="checkbox"> MR优化</li>
+<li><input disabled="" type="checkbox"> 并行执行</li>
+<li><input disabled="" type="checkbox"> 严格模式</li>
+<li><input disabled="" type="checkbox"> JVM重用</li>
+<li><input disabled="" type="checkbox"> 推测执行</li>
+<li><input disabled="" type="checkbox"> 压缩</li>
+</ul>
+
+    </div>
+
+    
+</div>
+                     
+<footer id="footer">
+    <div class="footer-wrap">
+        <div>
+            © 2020 - 2021 小王是个弟弟
+            <span class="footer-icon">
+                <a-icon type="flag" theme="filled" /></span>
+            @wjun
+        </div>
+        <div></div>
+        <div>Based on the <a target="_blank" rel="noopener" href="https://hexo.io/">Hexo Engine</a> & <a
+                target="_blank" rel="noopener" href="https://github.com/korilin/hexo-theme-particle">Particle Theme</a></div>
+        
+        <div>
+            备案号：<a target="_blank" rel="noopener" href="http://beian.miit.gov.cn/">
+                粤ICP备xxxxxx号
+            </a>
+        </div>
+        
+    </div>
+
+</footer>
+
+<script src="/js/highlight.min.js"></script>
+<script src="/js/particle.js"></script>
+                </div>
+            </div>
+        </transition>
+    </div>
+
+    <script>
+    new Vue({
+        el: "#layout",
+        data: {
+            show_page: false,
+            onload_menu: false,
+            menu_show: false,
+            card_top: 100
+        },
+        created: function () {
+            var that = this
+            window.onload = function () {
+                that.show_page = true
+                document.getElementById("loadcontent").style.opacity = 0
+                setTimeout(function () {
+                    document.getElementById("loadleft").style.width = 0
+                    document.getElementById("loadright").style.width = 0
+                }, 300)
+                setTimeout(function () {
+                    document.getElementById("loading").style = "display:none"
+                }, 600)
+            }
+        },
+        mounted: function () {
+            var that = this
+            window.addEventListener('scroll', function (e) {
+                that.menu_show = false
+            })
+        },
+        methods: {
+            home_click: function () {
+                window.scrollTo({
+                    top: window.innerHeight - 80,
+                    behavior: "smooth",
+                });
+            }
+        }
+    })
+</script>
+
+</body>
+
+</html>
