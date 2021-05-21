@@ -183,7 +183,7 @@
             
             <span class="tag">
                 
-                <a href="/tags/es" style=color:#ff7d73>
+                <a href="/tags/es" style=color:#00a596>
                     es
                 </a>
             </span>
@@ -230,7 +230,7 @@
 <li>根据关键词的分词去分词库中匹配，最终得到数据的id标识</li>
 <li>根据id标识去存放数据的位置拉取指定的数据</li>
 </ol>
-<p><img src="/Users/wjun/Desktop/%E5%8D%9A%E5%AE%A2%E4%B8%B4%E6%97%B6%E5%9B%BE%E5%BA%8A/%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95.png" alt="倒排索引"></p>
+<p><img src="https://s3.jpg.cm/2021/05/21/ZRpYQ.png" alt="倒排索引"></p>
 <blockquote>
 <p>流程</p>
 </blockquote>
@@ -289,7 +289,7 @@
 <li>备份的分片会放置在不同的节点中（单节点没有备份）</li>
 <li>类似MySQL的数据库</li>
 </ol>
-<p>![es index](/Users/wjun/Desktop/博客临时图床/es index.png)</p>
+<p><img src="https://s3.jpg.cm/2021/05/21/ZRv3h.png" alt="es index"></p>
 <h3 id="3-1-2-类型-Type"><a href="#3-1-2-类型-Type" class="headerlink" title="3.1.2 类型 Type"></a>3.1.2 类型 Type</h3><ol>
 <li>一个索引下，可以创建多个类型<ol>
 <li>ES 5.x 可以创建多个类型</li>
@@ -299,11 +299,11 @@
 </li>
 <li>相当于MySQL的表</li>
 </ol>
-<p>![es type](/Users/wjun/Desktop/博客临时图床/es type.png)</p>
+<p><img src="https://s3.jpg.cm/2021/05/21/ZRoRS.png" alt="es type"></p>
 <h3 id="3-1-3-文档-Document"><a href="#3-1-3-文档-Document" class="headerlink" title="3.1.3 文档 Document"></a>3.1.3 文档 Document</h3><p>一个类型下，可以有多个文档；这个文档相当于MySQL表中的列，存储实际数据</p>
-<p>![es document](/Users/wjun/Desktop/博客临时图床/es document.png)</p>
+<p><img src="https://s3.jpg.cm/2021/05/21/ZR41W.png" alt="es document"></p>
 <h3 id="3-1-4-属性-Field"><a href="#3-1-4-属性-Field" class="headerlink" title="3.1.4 属性 Field"></a>3.1.4 属性 Field</h3><p>一个文档中可以包含多个属性，类型MySQL表中一行数据可以存在多个字段</p>
-<p>![es field](/Users/wjun/Desktop/博客临时图床/es field.png)</p>
+<p><img src="https://s3.jpg.cm/2021/05/21/ZRBB2.png" alt="es field"></p>
 <h2 id="3-2-RESTful语法"><a href="#3-2-RESTful语法" class="headerlink" title="3.2 RESTful语法"></a>3.2 RESTful语法</h2><h3 id="3-2-1-GET-请求"><a href="#3-2-1-GET-请求" class="headerlink" title="3.2.1 GET 请求"></a>3.2.1 GET 请求</h3><p><a href="http://ip:port/index">http://ip:port/index</a> ：查询索引信息</p>
 <p><a href="http://ip:port/index/type/doc_id">http://ip:port/index/type/doc_id</a> ：查询指定的文档信息</p>
 <h3 id="3-2-2-POST-请求"><a href="#3-2-2-POST-请求" class="headerlink" title="3.2.2 POST 请求"></a>3.2.2 POST 请求</h3><p><a href="http://ip:port/index/type/doc_id/_search">http://ip:port/index/type/doc_id/_search</a> ：查询文档，可以在请求体中添加复杂的查询条件</p>
@@ -322,13 +322,13 @@ PUT /person
 &#125;
 </code></pre>
 <h3 id="3-3-2-查看索引信息"><a href="#3-3-2-查看索引信息" class="headerlink" title="3.3.2 查看索引信息"></a>3.3.2 查看索引信息</h3><p>方式一：WEB界面查看</p>
-<p>![es index信息](/Users/wjun/Desktop/博客临时图床/es index信息.png)</p>
+<p><img src="https://s3.jpg.cm/2021/05/21/ZRfOH.png" alt="es index信息"></p>
 <p>方式二：RESTful语法</p>
 <pre><code class="json"># 查看索引信息
 GET /person
 </code></pre>
 <h3 id="3-3-3-删除索引"><a href="#3-3-3-删除索引" class="headerlink" title="3.3.3 删除索引"></a>3.3.3 删除索引</h3><p>方式一：WEB界面操作</p>
-<p>![es index 删除](/Users/wjun/Desktop/博客临时图床/es index 删除.png)</p>
+<p><img src="https://s3.jpg.cm/2021/05/21/ZRzAL.png" alt="es index 删除"></p>
 <p>方式二：RESTful语法</p>
 <pre><code class="json"># 删除索引
 DELETE /person
