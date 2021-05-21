@@ -183,7 +183,7 @@
             
             <span class="tag">
                 
-                <a href="/tags/hive" style=color:#03a9f4>
+                <a href="/tags/hive" style=color:#00a596>
                     hive
                 </a>
             </span>
@@ -193,13 +193,21 @@
     </div>
 
     <div class="content" v-pre>
-        <h1 id="一、Hive-概述"><a href="#一、Hive-概述" class="headerlink" title="一、Hive 概述"></a>一、Hive 概述</h1><h2 id="1-1-Hive-是什么"><a href="#1-1-Hive-是什么" class="headerlink" title="1.1 Hive 是什么"></a>1.1 Hive 是什么</h2><ul>
+        <p><img src="https://s3.jpg.cm/2021/05/21/Ojq6H.jpg" alt="hive"></p>
+<blockquote>
+<p>作者：wjun</p>
+<p>平台：Centos 7</p>
+<p>版本：3.1.2</p>
+</blockquote>
+<a id="more"></a>
+
+<h1 id="一、Hive-概述"><a href="#一、Hive-概述" class="headerlink" title="一、Hive 概述"></a>一、Hive 概述</h1><h2 id="1-1-Hive-是什么"><a href="#1-1-Hive-是什么" class="headerlink" title="1.1 Hive 是什么"></a>1.1 Hive 是什么</h2><ul>
 <li>由Facebook开源用于解决海量结构化日志的数据统计</li>
 <li>基于Hadoop的一个数据仓库工具，可以将结构化的数据文件映射成一张表，并且提供类SQL的查询功能</li>
 <li>Hive仅仅是一个工具，本身不存储数据只提供一种管理方式，同时也不涉及分布式概念，就是个软件而已</li>
-<li>Hive本质就是MapReduce，将类SQL（HQL）转换成MapReduce程序<a id="more"></a>
-<h3 id="1-1-1-HQL转换MR流程"><a href="#1-1-1-HQL转换MR流程" class="headerlink" title="1.1.1 HQL转换MR流程"></a>1.1.1 HQL转换MR流程</h3><img src="https://img-blog.csdnimg.cn/20200829193044626.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></li>
+<li>Hive本质就是MapReduce，将类SQL（HQL）转换成MapReduce程序</li>
 </ul>
+<h3 id="1-1-1-HQL转换MR流程"><a href="#1-1-1-HQL转换MR流程" class="headerlink" title="1.1.1 HQL转换MR流程"></a>1.1.1 HQL转换MR流程</h3><p><img src="https://img-blog.csdnimg.cn/20200829193044626.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_16,color_FFFFFF,t_70#pic_center" alt="在这里插入图片描述"></p>
 <p>解释：</p>
 <ol>
 <li>Hive处理的数据存储在HDFS</li>
