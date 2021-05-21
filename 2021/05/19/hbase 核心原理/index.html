@@ -183,7 +183,7 @@
             
             <span class="tag">
                 
-                <a href="/tags/hbase" style=color:#00bcd4>
+                <a href="/tags/hbase" style=color:#00a596>
                     hbase
                 </a>
             </span>
@@ -955,7 +955,7 @@ Took 0.0934 seconds
         owner: 'kpretty',
         admin: ['kpretty'],
         language: 'zh-CN',
-        id: location.pathname,      // Ensure uniqueness and length less than 50
+        id: md5(location.pathname),      // Ensure uniqueness and length less than 50
         distractionFreeMode: true  // Facebook-like distraction free mode
     })
     gitalk.render('gitalk-container')
