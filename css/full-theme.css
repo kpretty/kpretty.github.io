@@ -1,6 +1,6 @@
 @font-face {
-  font-family: 'CascadiaCode';
-  src: url("../css/fonts/CascadiaCode.ttf");
+  font-family: 'consolas';
+  src: url("../css/fonts/consolas.ttf");
 }
 body {
   background: #f6f8fa;
