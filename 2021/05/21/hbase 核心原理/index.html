@@ -1,0 +1,960 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hans ">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小王是个弟弟HBase 核心原理</title>
+    <meta name="author" content="wjun">
+    <meta name="description" content=" ">
+    <meta name="keywords" content="bigdata java db ">
+    <link rel="icon" href="/avatar.png">
+    <link rel="stylesheet" href="/css/antd.min.css">
+    
+    <link rel="stylesheet" href="/css/full-theme.css">
+    
+    <script src="/js/vue.js"></script>
+    <script src="/js/antd.min.js"></script>
+<meta name="generator" content="Hexo 5.3.0"></head>
+
+<body>
+
+    <div id="loading"
+        style="height: 100vh; width: 100%; position: fixed;display: flex;z-index: 200; justify-content: space-between;">
+        <div id="loadleft" style="width: 50%;background-color: #ffffff;transition: width 0.6s ease-out;"></div>
+        <div id="loadright" style="width: 50%;background-color: #ffffff;transition: width 0.6s ease-out;"></div>
+        <div
+            style="position: fixed; height: 100vh; width: 100%;display: flex;justify-content: center;align-items: center;">
+            <div id="loadcontent"
+                style="width:400px;height:400px;padding:50px;border-radius:50%;display:flex;justify-content:center;align-items:center;border:solid 10px#a3ddfb; text-align:center;opacity:1;transition:opacity 0.3s ease-out;">
+                <div>
+                    <h2>LOADING...</h2>
+                    <p>加载过慢请开启缓存(浏览器默认开启)</p>
+                    <div>
+                        <img src="/dancingkitty.gif" alt="loading">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="layout">
+        <transition name="into">
+            <div v-show="show_page" style="display: none;">
+                <div id="menu_show">
+                     
+<nav id="menu">
+    <div class="desktop-menu">
+        <a href="/">
+            <span class="title">小王是个弟弟</span>
+        </a>
+        
+        <a href="/">
+            <span>
+                <a-icon type="home" theme="filled" />
+            </span>
+            <span>home</span>
+        </a>
+        
+        <a href="/about">
+            <span>
+                <a-icon type="idcard" theme="filled" />
+            </span>
+            <span>about</span>
+        </a>
+        
+        <a href="/archives">
+            <span>
+                <a-icon type="folder" theme="filled" />
+            </span>
+            <span>archives</span>
+        </a>
+        
+        <a href="/categories/大数据">
+            <span>
+                <a-icon type="book" theme="filled" />
+            </span>
+            <span>categories</span>
+        </a>
+        
+        <a href="/tags/hive">
+            <span>
+                <a-icon type="tags" theme="filled" />
+            </span>
+            <span>tags</span>
+        </a>
+        
+    </div>
+
+    <div :class="'phone-menu ' + menu_show" id="phone-menu">
+        <div :class="'title'" @click="menu_show=!menu_show">
+            <span style="margin-right: 10px;">
+                <a-icon type="appstore" theme="filled" />
+            </span>
+            <span>小王是个弟弟</span>
+        </div>
+        <div class="items" v-show="menu_show">
+            
+            <a href="/">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="home" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">home</div>
+                </div>
+            </a>
+            
+            <a href="/about">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="idcard" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">about</div>
+                </div>
+            </a>
+            
+            <a href="/archives">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="folder" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">archives</div>
+                </div>
+            </a>
+            
+            <a href="/categories/大数据">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="book" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">categories</div>
+                </div>
+            </a>
+            
+            <a href="/tags/hive">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="tags" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">tags</div>
+                </div>
+            </a>
+            
+        </div>
+        <div class="curtain" v-show="menu_show"></div>
+    </div>
+
+</nav>
+                </div>
+
+                <div id="main">
+                     
+<link rel="stylesheet" href="/css/post-body.css">
+<div class="article">
+    <div>
+        <h1>HBase 核心原理 </h1>
+    </div>
+    <div class="info">
+        <span class="date">
+            <span class="icon">
+                <a-icon type="calendar" theme="filled" />
+            </span>
+            2021/5/21
+        </span>
+
+        
+        <span class="category">
+            <a href="/categories/大数据">
+                <span class="icon">
+                    <a-icon type="book" theme="filled" />
+                </span>
+                大数据
+            </a>
+        </span>
+        
+
+        
+
+        <span class="tags">
+            <span class="icon">
+                <a-icon type="tags" theme="filled" />
+            </span>
+            
+            <span class="tag">
+                
+                <a href="/tags/hbase" style=color:#ff7d73>
+                    hbase
+                </a>
+            </span>
+            
+        </span>
+        
+    </div>
+
+    <div class="content" v-pre>
+        <p><img src="https://s3.jpg.cm/2021/05/21/ZR6ue.png" alt="hadoop"></p>
+<blockquote>
+<p>作者：wjun</p>
+<p>平台：Centos 7</p>
+<p>版本：2.2.0</p>
+</blockquote>
+<a id="more"></a>
+
+<h1 id="一、HBase简介"><a href="#一、HBase简介" class="headerlink" title="一、HBase简介"></a>一、HBase简介</h1><h2 id="1-1HBase定义"><a href="#1-1HBase定义" class="headerlink" title="1.1HBase定义"></a>1.1HBase定义</h2><p>&emsp;&emsp;HBase是一种分布式、可拓展、支持海量数据存储的非关系型数据库。来源于谷歌的三驾马车之一的BigTable，负责海量数据的存储。对于数据量不大的时候优势不明显，使用HBase不划算，在运行期间一直在“分分合合”的操作耗费资源，<strong>当数据量上来时，可以做到几十亿条数据秒级响应</strong>。针对HDFS并不支持随机写操作，但HBase是基于HDFS可以在HDFS上实现随机写操作，实现HDFS上的增删改查，其实现十分简单HBase把数据下载下来修改然后重新上传，但由于HBase拥有许多组件对其进行极致的优化，使之让这种效率低的方法速度变得极快，<strong>利用资源换取了时间</strong>，目前是Apache维护的顶级项目。</p>
+<h2 id="1-2-HBase-数据模型"><a href="#1-2-HBase-数据模型" class="headerlink" title="1.2 HBase 数据模型"></a>1.2 HBase 数据模型</h2><p>&emsp;&emsp;逻辑上，HBase的数据模型关系数据库同关系型数据库很类似，数据存储在一张表中，有行有列。但从HBase的底层物理存储结构（K - V）来看，HBase更像是一个multi-dimensional map</p>
+<h3 id="1-2-1-HBase逻辑结构"><a href="#1-2-1-HBase逻辑结构" class="headerlink" title="1.2.1 HBase逻辑结构"></a>1.2.1 HBase逻辑结构</h3><p><img src="https://img-blog.csdnimg.cn/20200624201714195.PNG?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="HBase逻辑结构"></p>
+<ul>
+<li>Row Key：行键，系统自带，在一张表中必须是唯一的，类似MySQL的主键【字典序】</li>
+<li>列：类似MySQL的字段</li>
+<li>列族：将很多列分出来不同的列族，影响最终的存储，<strong>不同的列族存储在不同的文件夹中</strong></li>
+<li>Region：横向切片</li>
+<li>store：存储，真正存储在HDFS的数据</li>
+</ul>
+<blockquote>
+<p><strong>其中region/store借鉴MySQL的高表宽表的存储策略</strong></p>
+</blockquote>
+<h3 id="1-2-2-再谈store"><a href="#1-2-2-再谈store" class="headerlink" title="1.2.2 再谈store"></a>1.2.2 再谈store</h3><p><img src="https://img-blog.csdnimg.cn/20200624203610644.PNG?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="store"><br>&emsp;&emsp;在HBsae上每一条数据都有很多信息，如row_key1这列真正存储了行键、列族、列名、时间戳、操作类型和数据，其中HBase实现HDFS的随机写操作完全靠这个时间戳来完成即TimeStamp（记录当前操作时间），<strong>因此后面进行API操作时一定要将Linux时间和Windows时间调成一致，否则会发生各种诡异的事情，如：删除数据删不掉，插入数据看不见等等…</strong> 注意到t3和t4时间戳行，发现它们的列名都是phone且操作类型都是Put，这就是HBase的随机写操作（修改phone数据操作），只要t4&gt;t3即可实现修改（覆盖），若进行删除HBase会将操作类型设为Delete，若Delete的时间戳大于Put的时间戳则不返回数据，造成了一种删除的错觉，其实当时的数据并没有被删除（在分表和表过程中删除），否则HBase的速度不会这么快。</p>
+<h3 id="1-2-3-数据模型"><a href="#1-2-3-数据模型" class="headerlink" title="1.2.3 数据模型"></a>1.2.3 数据模型</h3><p><strong>1）Name Space</strong><br>&emsp;&emsp;命名空间，类似MySQL库的概念，每个命名空间下有很多表，其中HBase自带两个命名空间分别是<code>hbase</code>和<code>default</code>，其中<code>hbase</code>存放系统内置的表，<code>default</code>是用户默认使用的命名空间。<br><strong>2）Region</strong><br>&emsp;&emsp;表的切片，当达到高表时会有很多切片对于HBase来说10G一切，当然我们也可以手动切。HBase建表时只需要指定到列族即可，字段可以动态增加，因为HBase是以键值对的形式为一个数据进行存储，他的列（字段）相当于数据里的键。<br><strong>3）Row</strong><br>&emsp;&emsp;每行数据都有一个RowKey和多个列组成，数据是按照RowKey的字典顺序存储，并且查询数据时只能根据RowKey进行检索。<br><strong>4）Column</strong><br>&emsp;&emsp;每个列都是由列族和列限定符（字段）进行鉴定<br><strong>5）TimeStamp</strong><br>&emsp;&emsp;用于标识数据的不同版本，如果不指定时间戳系统会自动天剑当前时间<br><strong>6）Cell</strong><br>&emsp;&emsp;唯一确定的单元｛rowkey，column Family：column Qualifier，time Stamp｝。cell中的数据没有类型，底层都是字节数组形式存储。</p>
+<blockquote>
+<p>总结：第一个NameSpace命名空间，类似数据库；第二个Region和表有关系，从大的结构往小看的，起初数据量小的时候，这个表就是一个Region；表里面在HBase叫列族，列族下是列，列下面是数据，但这个数据是你看到的版本最大的数据，实际上这个单元格底下可能隐藏着其它数据，只有row key加列族加列加时间戳才能唯一确定这个数据，不加时间戳可能会是一系列数据，如果我们能唯一确定一个数据即加了时间戳那么这个数据就是一个Cell，叫单元格或者细胞，在这个Cell里数据没有复杂的数据类型都是字节数组。</p>
+</blockquote>
+<h2 id="1-3-HBase基本框架"><a href="#1-3-HBase基本框架" class="headerlink" title="1.3 HBase基本框架"></a>1.3 HBase基本框架</h2><p><img src="https://img-blog.csdnimg.cn/20200625144930623.PNG?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="基本框架"><br><strong>1）Region Server</strong>【DML】<br>&emsp;&emsp;Region的管理者，管理数据的增删改查，和Region的分表（splitRegion）和表（compactRegion）<br><strong>2）Master</strong>【DDL】<br>&emsp;&emsp;RegionServer的管理者，管理表的增删改查，监控每个RegionServer的状态，负载均衡和故障转移<br><strong>3）Zookeeper</strong><br>&emsp;&emsp;通过Zookeeper实现Master的高可用，RegionServer的监控、元数据入口以及集群的配置维护等<br><strong>4）HDFS</strong><br>&emsp;&emsp; 为HBase提供最终的底层数据存储服务，提供HBase的高可用</p>
+<h1 id="二、HBase快速入门"><a href="#二、HBase快速入门" class="headerlink" title="二、HBase快速入门"></a>二、HBase快速入门</h1><h2 id="2-1-HBase集群搭建"><a href="#2-1-HBase集群搭建" class="headerlink" title="2.1 HBase集群搭建"></a>2.1 HBase集群搭建</h2><h3 id="2-1-1-Zookeeper正常部署并启动"><a href="#2-1-1-Zookeeper正常部署并启动" class="headerlink" title="2.1.1 Zookeeper正常部署并启动"></a>2.1.1 Zookeeper正常部署并启动</h3><p>HBase的Master需要Zookeeper提供高可用的支持，通过群起脚本快速启动</p>
+<pre><code class="bash">#!/bin/bash
+pcount=$#
+if [ $pcount == 0 ]
+then
+echo &quot;no args&quot;
+        exit
+fi
+
+# 获取参数
+p1=$1
+if [ $p1 == &quot;start&quot; ]
+then
+        for i in root@master root@slave01 root@slave02
+        do
+                echo &quot;=============== $i ===============&quot;
+                ssh $i &quot;source /etc/profile &amp;&amp; /usr/local/soft/zookeeper-3.4.10/bin/zkServer.sh start&quot;
+        done
+        exit
+fi
+
+if [ $p1 == &quot;stop&quot; ]
+then
+        for i in root@master root@slave01 root@slave02
+        do
+                echo &quot;=============== $i ===============&quot;
+                ssh $i &#39;/usr/local/soft/zookeeper-3.4.10/bin/zkServer.sh stop&#39;
+        done
+        exit
+fi
+
+
+if [ $p1 == &quot;status&quot; ]
+then
+        for i in root@master root@slave01 root@slave02
+        do
+                echo &quot;=============== $i ===============&quot;
+                ssh $i &quot;source /etc/profile &amp;&amp; /usr/local/soft/zookeeper-3.4.10/bin/zkServer.sh status&quot;
+        done
+        exit
+fi
+</code></pre>
+<h3 id="2-1-2-Hadoop正常部署并启动"><a href="#2-1-2-Hadoop正常部署并启动" class="headerlink" title="2.1.2 Hadoop正常部署并启动"></a>2.1.2 Hadoop正常部署并启动</h3><p>HBase需要HDFS提供存储服务，通过配置slaves文件可实现群起Hadoop集群（启动hdfs即可）</p>
+<pre><code class="shell">start-dfs.sh
+</code></pre>
+<h3 id="2-1-3-HBase正常部署并启动"><a href="#2-1-3-HBase正常部署并启动" class="headerlink" title="2.1.3 HBase正常部署并启动"></a>2.1.3 HBase正常部署并启动</h3><h4 id="1-HBase解压"><a href="#1-HBase解压" class="headerlink" title="1. HBase解压"></a>1. HBase解压</h4><pre><code class="shell">tar -zxvf hbase-2.2.5-bin.tar.gz
+</code></pre>
+<h4 id="2-修改配置文件"><a href="#2-修改配置文件" class="headerlink" title="2. 修改配置文件"></a>2. 修改配置文件</h4><pre><code class="shell">cd hbase-2.2.5/conf/
+</code></pre>
+<p>修改<code>hbase-env.sh</code></p>
+<pre><code class="bash"># The java implementation to use.  Java 1.8+ required.
+export JAVA_HOME=/usr/local/soft/jdk1.8.0_144
+
+# Tell HBase whether it should manage it&#39;s own instance of ZooKeeper or not.
+export HBASE_MANAGES_ZK=false
+</code></pre>
+<p>写死<code>JAVA_HOME</code>，最新版[2020/6/25]的HBase要求jdk1.8+了，**最后一定要修改你<code>HBASE_MANAGES_ZK</code>为<code>false</code>**，HBase内置了一个Zookeeper默认使用它内置的版本，但会修改你本机的Zookeeper的myid导致原先的Zookeeper集群下次无法正常使用。<br>修改<code>hbase-site.xml</code>，内容如下</p>
+<pre><code class="bash">&lt;configuration&gt;
+  &lt;!--
+    The following properties are set for running HBase as a single process on a
+    developer workstation. With this configuration, HBase is running in
+    &quot;stand-alone&quot; mode and without a distributed file system. In this mode, and
+    without further configuration, HBase and ZooKeeper data are stored on the
+    local filesystem, in a path under the value configured for `hbase.tmp.dir`.
+    This value is overridden from its default value of `/tmp` because many
+    systems clean `/tmp` on a regular basis. Instead, it points to a path within
+    this HBase installation directory.
+
+    Running against the `LocalFileSystem`, as opposed to a distributed
+    filesystem, runs the risk of data integrity issues and data loss. Normally
+    HBase will refuse to run in such an environment. Setting
+    `hbase.unsafe.stream.capability.enforce` to `false` overrides this behavior,
+    permitting operation. This configuration is for the developer workstation
+    only and __should not be used in production!__
+
+    See also https://hbase.apache.org/book.html#standalone_dist
+  --&gt;
+          &lt;!-- 是否搭建分布式 --&gt;
+        &lt;property&gt;
+                &lt;name&gt;hbase.cluster.distributed&lt;/name&gt;
+                &lt;value&gt;true&lt;/value&gt;
+        &lt;/property&gt;
+        &lt;!-- 临时文件目录 --&gt;
+        &lt;property&gt;
+                &lt;name&gt;hbase.tmp.dir&lt;/name&gt;
+                &lt;value&gt;/usr/local/soft/hbase-2.2.5/tmp/&lt;/value&gt;
+        &lt;/property&gt;
+        &lt;!-- 暂时不知道干嘛的，上面的注释说让你设置成false--&gt;
+        &lt;property&gt;
+                &lt;name&gt;hbase.unsafe.stream.capability.enforce&lt;/name&gt;
+                &lt;value&gt;false&lt;/value&gt;
+        &lt;/property&gt;
+        &lt;!-- 写的是hdfs的namenode节点，相当于将HBase存储到hdfs下的/HBase --&gt;
+        &lt;property&gt;
+                &lt;name&gt;hbase.rootdir&lt;/name&gt;
+                &lt;value&gt;hdfs://master:9000/HBase&lt;/value&gt;
+        &lt;/property&gt;
+        &lt;!-- 默认端口号，可写可不写 --&gt;
+        &lt;property&gt;
+                &lt;name&gt;hbase.master.port&lt;/name&gt;
+                &lt;value&gt;16000&lt;/value&gt;
+        &lt;/property&gt;
+        &lt;!-- 你的Zookeeper节点 --&gt;
+        &lt;property&gt;
+                &lt;name&gt;hbase.zookeeper.quorum&lt;/name&gt;
+                &lt;value&gt;master,slave01,slave02&lt;/value&gt;
+        &lt;/property&gt;
+        &lt;!-- 你的Zookeeper工作目录，配置文件里的 --&gt;
+        &lt;property&gt;
+                &lt;name&gt;hbase.zookeeper.property.dataDir&lt;/name&gt;
+                &lt;value&gt;/usr/local/soft/zookeeper-3.4.10/zkData&lt;/value&gt;
+        &lt;/property&gt;
+&lt;/configuration&gt;
+</code></pre>
+<p>配置<code>regionservers</code></p>
+<pre><code class="bash">master
+slave01
+slave02
+</code></pre>
+<p>注意不要写空格，和群起hdfs一样的要求<br>==<strong>软连接hadoop配置文件到hbase</strong>==</p>
+<pre><code class="bash">ln -s /usr/local/soft/hadoop-2.7.2/etc/hadoop/core-site.xml /usr/local/soft/hbase-2.2.5/conf/core-site.xml
+ln -s /usr/local/soft/hadoop-2.7.2/etc/hadoop/hdfs-site.xml /usr/local/soft/hbase-2.2.5/conf/hdfs-site.xml
+</code></pre>
+<p>最后一步同步分发到其他节点，下面是我的分发脚本<code>xsync.sh</code></p>
+<pre><code class="bash">#!/bin/bash
+#1 获取输入参数个数，如果没有参数，直接退出
+pcount=$#
+if [ $pcount == 0 ]
+then
+        echo no args
+        exit
+fi
+#2 获取文件名称
+p1=$1
+fname=`basename $p1`
+echo fname=$fname
+
+#3 获取上级目录到绝对路径
+pdir=`cd -P $(dirname $p1); pwd`
+echo pdir=$pdir
+
+#4 获取当前用户名称
+user=`whoami`
+
+rsync -rvl $pdir/$fname $user@slave01:$pdir
+rsync -rvl $pdir/$fname $user@slave02:$pdir
+</code></pre>
+<p>执行分发</p>
+<pre><code class="shell">xsync.sh /usr/local/soft/hbase-2.2.5/
+</code></pre>
+<p>上面说过在HBase中时间戳很重要，是一切操作的基础，因此集群之间的时间必须通过，默认时间差30秒，因此在集群启动之间必须同步时间，否则无法启动报ClockOutOfSyncException异常<a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_26442553/article/details/78529303?ops_request_misc=%257B%2522request%255Fid%2522%253A%2522159308366519725222443558%2522%252C%2522scm%2522%253A%252220140713.130102334..%2522%257D&request_id=159308366519725222443558&biz_id=0&utm_medium=distribute.pc_search_result.none-task-blog-2~all~top_click~default-1-78529303.first_rank_ecpm_v3_pc_rank_v2&utm_term=%E9%9B%86%E7%BE%A4%E6%97%B6%E9%97%B4%E5%90%8C%E6%AD%A5">如何同步集群时间</a>，不推荐修改默认时间差</p>
+<pre><code class="bash">&lt;property&gt;
+    &lt;name&gt;hbase.master.maxclockskew&lt;/name&gt;
+    &lt;value&gt;180000&lt;/value&gt;
+    &lt;description&gt;Time difference of regionserver from master&lt;/description&gt;
+&lt;/property&gt;
+</code></pre>
+<h4 id="3-启动HBase"><a href="#3-启动HBase" class="headerlink" title="3. 启动HBase"></a>3. 启动HBase</h4><pre><code class="bash">start-hbase.sh //启动HBase
+
+stop-hbase.sh //关闭HBase 
+</code></pre>
+<p>下面这种情况是由于Hadoop的<code>slf4j-log4j12-1.7.10.jar</code>与HBase的<code>slf4j-log4j12-1.7.25.jar</code>版本不一样，但是不会影响正常使用，网上的解决方法删除其中一个jar包，亲测删除Hadoop的jar包后HBase确实不报异常了，Hadoop开始报异常(┬＿┬)，最好的方法是更换Hadoop版本，在搭建集群的时候就提前规划好（没有强迫症的随意）</p>
+<pre><code class="bash">SLF4J: Class path contains multiple SLF4J bindings.
+SLF4J: Found binding in [jar:file:/usr/local/soft/hadoop-2.7.2/share/hadoop/common/lib/slf4j-log4j12-1.7.10.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+SLF4J: Found binding in [jar:file:/usr/local/soft/hbase-2.2.5/lib/client-facing-thirdparty/slf4j-log4j12-1.7.25.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+SLF4J: See http://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+SLF4J: Actual binding is of type [org.slf4j.impl.Log4jLoggerFactory]
+</code></pre>
+<h3 id="2-1-4-查看集群状态"><a href="#2-1-4-查看集群状态" class="headerlink" title="2.1.4 查看集群状态"></a>2.1.4 查看集群状态</h3><h4 id="1-方式一-jps"><a href="#1-方式一-jps" class="headerlink" title="1. 方式一 jps"></a>1. 方式一 jps</h4><p>为了方便查看各个集群的java进程，我编写一个简单的脚本<code>call.sh</code></p>
+<pre><code class="bash">#!/bin/bash
+pcount=$#
+if [ $pcount == 0 ]
+then
+        echo &quot;no args&quot;
+        exit
+fi
+
+args=$1
+if [ $args == &quot;jps&quot; ]
+then
+        for i in master slave01 slave02
+        do
+                echo &quot;================ $i ================&quot;
+                ssh $i /usr/local/soft/jdk1.8.0_144/bin/jps
+        done
+fi
+</code></pre>
+<pre><code class="bash">[root@master shell]# call.sh jps
+================ master ================
+11521 DataNode
+11254 QuorumPeerMain
+12070 HRegionServer
+11928 HMaster
+12285 Jps
+11407 NameNode
+================ slave01 ================
+8018 DataNode
+7943 QuorumPeerMain
+8107 SecondaryNameNode
+8236 HRegionServer
+8351 Jps
+================ slave02 ================
+6344 QuorumPeerMain
+6665 Jps
+6540 HRegionServer
+6413 DataNode
+</code></pre>
+<h4 id="1-方式二-web查看"><a href="#1-方式二-web查看" class="headerlink" title="1. 方式二 web查看"></a>1. 方式二 web查看</h4><p>端口号 master:16010，master是你的HBase的Master节点ip（可在windows配置一下主机名映射）<br><img src="https://img-blog.csdnimg.cn/20200625192823659.PNG?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="Web界面"></p>
+<h2 id="2-2-HBase-Shell-操作"><a href="#2-2-HBase-Shell-操作" class="headerlink" title="2.2 HBase Shell 操作"></a>2.2 HBase Shell 操作</h2><blockquote>
+<p>写在前面，HBase的Shell命令只可能在学习，熟悉命令的时候使用，真正的项目开发还得用API</p>
+</blockquote>
+<h3 id="2-2-1-基本操作"><a href="#2-2-1-基本操作" class="headerlink" title="2.2.1 基本操作"></a>2.2.1 基本操作</h3><p><strong>1. 进入HBase客户端</strong></p>
+<pre><code class="bash">habse shell
+</code></pre>
+<p><strong>2. 查看帮助命令</strong></p>
+<pre><code class="bash">help
+</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/20200627141104444.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="shell"><br>看到了熟悉的DDL、DML和namespace，以及前面说的compact、split和flush等<br><strong>3. 查看所有的用户表</strong></p>
+<pre><code class="bash">list
+</code></pre>
+<pre><code class="bash">hbase(main):010:0&gt; list
+TABLE
+0 row(s)
+Took 0.0087 seconds
+=&gt; []
+</code></pre>
+<p>当前namespace下的表为空<br>注意：命令结束不要使用<code>;</code> ，命令结束不要使用<code>;</code> ，命令结束不要使用<code>;</code><br>误操作可输入两次<code>&#39;</code>退回shell命令行，不要<code>ctrl c</code>来回登录很麻烦</p>
+<pre><code class="bash">hbase(main):011:0&gt; list;
+hbase(main):012:0* &#39;
+hbase(main):013:0&#39; &#39;
+TABLE
+0 row(s)
+Took 0.0093 seconds
+=&gt; &quot;\n&quot;
+hbase(main):014:0&gt;
+</code></pre>
+<h3 id="2-2-2-DDL"><a href="#2-2-2-DDL" class="headerlink" title="2.2.2 DDL"></a>2.2.2 DDL</h3><p><strong>1.创建一个表</strong></p>
+<pre><code class="bash">create &#39;student&#39;,&#39;info&#39;
+</code></pre>
+<p>基本语法：<code>create &#39;表名&#39;,&#39;列族名&#39;</code><br>注意事项：</p>
+<ol>
+<li>表名，列族名要用引号括起来（不区分单双引号）</li>
+<li>一定要写列族名</li>
+</ol>
+<p><strong>2.查看表结构</strong></p>
+<pre><code class="bash">describe &#39;student&#39;
+</code></pre>
+<p><strong>注意：hbase的shell支持<code>tab</code>提示</strong><br><img src="https://img-blog.csdnimg.cn/20200627143334618.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="desc"><br>这个<code>VERSIONS =&gt; &#39;1&#39;</code>可以改，上面解释cell说过需要加时间戳才能唯一确定一个数据，这个<code>VERSIONS</code>决定这个单元格最终能存几个数据<br><strong>3.修改表结构</strong><br>常见的是改<code>VERSIONS</code>的信息</p>
+<pre><code class="bash">alter &#39;student&#39;,&#123;NAME=&gt;&#39;info1&#39;,VERSIONS=&gt;3&#125;
+</code></pre>
+<p>将<code>VERSIONS</code>改为3，这样在分表和表时一个单元格会保留三份时间戳最大的数据<br><strong>4.删除表</strong></p>
+<pre><code class="bash">hbase(main):020:0&gt; drop &#39;student&#39;
+
+ERROR: Table student is enabled. Disable it first.
+
+For usage try &#39;help &quot;drop&quot;&#39;
+
+Took 0.0211 seconds
+</code></pre>
+<p>这里它报错了，说这个表是可用的，删除前让这个表下线，使用<code>disable</code></p>
+<pre><code class="bash">disable &#39;student&#39;
+drop &#39;student&#39;
+</code></pre>
+<p><strong>5.关于命名空间的命令</strong><br>和DDL命令几乎一样，如：<br>查看命名空间</p>
+<pre><code class="bash">list_namespace
+</code></pre>
+<p>创建一个命名空间</p>
+<pre><code class="bash">create_namespace &#39;bigdata&#39;
+</code></pre>
+<p>将表创建到指定的命名空间，当我们不指定命名空间时，系统默认创建到<code>default</code>中，且使用表时不加命名空间系统会从<code>default</code>中查找</p>
+<pre><code class="bash">create &#39;bigdata:student&#39;,&#39;info&#39;
+</code></pre>
+<p><code>list</code>查看一下</p>
+<pre><code class="bash">hbase(main):025:0&gt; list
+TABLE
+bigdata:student
+student
+2 row(s)
+Took 0.0092 seconds
+=&gt; [&quot;bigdata:student&quot;, &quot;student&quot;]
+</code></pre>
+<p>可能有人就说了，我怎么知道是创建在bigdata的命名空间呢，或许是你的表名就是<code>bigdata:student</code>呢？好吧，我们可以通过web来查看一下<br><img src="https://img-blog.csdnimg.cn/20200627145548183.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="status"><br>最后是删除命名空间</p>
+<pre><code class="bash">hbase(main):026:0&gt; drop_namespace &#39;bigdata&#39;
+
+ERROR: org.apache.hadoop.hbase.constraint.ConstraintException: Only empty namespaces can be removed. Namespace bigdata has 1 tables
+        at org.apache.hadoop.hbase.master.procedure.DeleteNamespaceProcedure.prepareDelete(DeleteNamespaceProcedure.java:217)
+        at org.apache.hadoop.hbase.master.procedure.DeleteNamespaceProcedure.executeFromState(DeleteNamespaceProcedure.java:78)
+        at org.apache.hadoop.hbase.master.procedure.DeleteNamespaceProcedure.executeFromState(DeleteNamespaceProcedure.java:45)
+        at org.apache.hadoop.hbase.procedure2.StateMachineProcedure.execute(StateMachineProcedure.java:194)
+        at org.apache.hadoop.hbase.procedure2.Procedure.doExecute(Procedure.java:962)
+        at org.apache.hadoop.hbase.procedure2.ProcedureExecutor.execProcedure(ProcedureExecutor.java:1662)
+        at org.apache.hadoop.hbase.procedure2.ProcedureExecutor.executeProcedure(ProcedureExecutor.java:1409)
+        at org.apache.hadoop.hbase.procedure2.ProcedureExecutor.access$1100(ProcedureExecutor.java:78)
+        at org.apache.hadoop.hbase.procedure2.ProcedureExecutor$WorkerThread.run(ProcedureExecutor.java:1979)
+
+For usage try &#39;help &quot;drop_namespace&quot;&#39;
+
+Took 0.9124 seconds
+</code></pre>
+<p>发现它报错了，这个和MySQL一样，命名空间有表是不能被删除的，因此我们首先<code>disable</code>掉所有表，然后删除所有表，最后<code>drop_namespace</code></p>
+<h3 id="2-2-3-DML"><a href="#2-2-3-DML" class="headerlink" title="2.2.3 DML"></a>2.2.3 DML</h3><p>首先查看一下<code>put</code>的用法</p>
+<pre><code class="bash">hbase(main):003:0&gt; help &#39;put&#39;
+Put a cell &#39;value&#39; at specified table/row/column and optionally
+timestamp coordinates.  To put a cell value into table &#39;ns1:t1&#39; or &#39;t1&#39;
+at row &#39;r1&#39; under column &#39;c1&#39; marked with the time &#39;ts1&#39;, do:
+
+  hbase&gt; put &#39;ns1:t1&#39;, &#39;r1&#39;, &#39;c1&#39;, &#39;value&#39;
+  hbase&gt; put &#39;t1&#39;, &#39;r1&#39;, &#39;c1&#39;, &#39;value&#39;
+  hbase&gt; put &#39;t1&#39;, &#39;r1&#39;, &#39;c1&#39;, &#39;value&#39;, ts1
+  hbase&gt; put &#39;t1&#39;, &#39;r1&#39;, &#39;c1&#39;, &#39;value&#39;, &#123;ATTRIBUTES=&gt;&#123;&#39;mykey&#39;=&gt;&#39;myvalue&#39;&#125;&#125;
+  hbase&gt; put &#39;t1&#39;, &#39;r1&#39;, &#39;c1&#39;, &#39;value&#39;, ts1, &#123;ATTRIBUTES=&gt;&#123;&#39;mykey&#39;=&gt;&#39;myvalue&#39;&#125;&#125;
+  hbase&gt; put &#39;t1&#39;, &#39;r1&#39;, &#39;c1&#39;, &#39;value&#39;, ts1, &#123;VISIBILITY=&gt;&#39;PRIVATE|SECRET&#39;&#125;
+
+The same commands also can be run on a table reference. Suppose you had a reference
+t to table &#39;t1&#39;, the corresponding command would be:
+
+  hbase&gt; t.put &#39;r1&#39;, &#39;c1&#39;, &#39;value&#39;, ts1, &#123;ATTRIBUTES=&gt;&#123;&#39;mykey&#39;=&gt;&#39;myvalue&#39;&#125;&#125;
+</code></pre>
+<p>解释：</p>
+<ul>
+<li> <code>ns1:t1</code>指定一张表，不写<code>ns1</code>默认<code>default</code></li>
+<li> <code>r1</code>是Row Key</li>
+<li> <code>c1</code>是列族，一般这个时候会加入列，如：<code>info:name</code></li>
+<li><code>value</code>插入的数据</li>
+</ul>
+<pre><code class="bash">put &#39;student&#39;,&#39;1001&#39;,&#39;info1:name&#39;,&#39;张三&#39;
+</code></pre>
+<p>查看表两种方法<code>scan</code>和<code>get</code>，同理首先<code>help &#39;scan&#39;</code></p>
+<pre><code class="bash">Some examples:
+
+  hbase&gt; scan &#39;hbase:meta&#39;
+  hbase&gt; scan &#39;hbase:meta&#39;, &#123;COLUMNS =&gt; &#39;info:regioninfo&#39;&#125;
+  hbase&gt; scan &#39;ns1:t1&#39;, &#123;COLUMNS =&gt; [&#39;c1&#39;, &#39;c2&#39;], LIMIT =&gt; 10, STARTROW =&gt; &#39;xyz&#39;&#125;
+  hbase&gt; scan &#39;t1&#39;, &#123;COLUMNS =&gt; [&#39;c1&#39;, &#39;c2&#39;], LIMIT =&gt; 10, STARTROW =&gt; &#39;xyz&#39;&#125;
+  hbase&gt; scan &#39;t1&#39;, &#123;COLUMNS =&gt; &#39;c1&#39;, TIMERANGE =&gt; [1303668804000, 1303668904000]&#125;
+  hbase&gt; scan &#39;t1&#39;, &#123;REVERSED =&gt; true&#125;
+  hbase&gt; scan &#39;t1&#39;, &#123;ALL_METRICS =&gt; true&#125;
+  hbase&gt; scan &#39;t1&#39;, &#123;METRICS =&gt; [&#39;RPC_RETRIES&#39;, &#39;ROWS_FILTERED&#39;]&#125;
+  hbase&gt; scan &#39;t1&#39;, &#123;ROWPREFIXFILTER =&gt; &#39;row2&#39;, FILTER =&gt; &quot;
+    (QualifierFilter (&gt;=, &#39;binary:xyz&#39;)) AND (TimestampsFilter ( 123, 456))&quot;&#125;
+  hbase&gt; scan &#39;t1&#39;, &#123;FILTER =&gt;
+    org.apache.hadoop.hbase.filter.ColumnPaginationFilter.new(1, 0)&#125;
+  hbase&gt; scan &#39;t1&#39;, &#123;CONSISTENCY =&gt; &#39;TIMELINE&#39;&#125;
+  hbase&gt; scan &#39;t1&#39;, &#123;ISOLATION_LEVEL =&gt; &#39;READ_UNCOMMITTED&#39;&#125;
+  hbase&gt; scan &#39;t1&#39;, &#123;MAX_RESULT_SIZE =&gt; 123456&#125;
+</code></pre>
+<p>最简单的直接跟表名，当然可以添加过滤器过滤条件（在命令行写怕是疯了）</p>
+<pre><code class="bash">hbase(main):008:0&gt; scan &#39;student&#39;
+ROW                                    COLUMN+CELL
+ 1001                                  column=info1:name, timestamp=1593241775973, value=\xE5\xBC\xA0\xE4\xB8\x89
+1 row(s)
+Took 0.0844 seconds
+</code></pre>
+<p>数据会自动增加一个时间戳，请忽略value😄（远程连接工具编码格式问题，影响不大）<br>第二种方法<code>get</code></p>
+<pre><code class="bash">  hbase&gt; get &#39;ns1:t1&#39;, &#39;r1&#39;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;TIMERANGE =&gt; [ts1, ts2]&#125;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;COLUMN =&gt; &#39;c1&#39;&#125;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;COLUMN =&gt; [&#39;c1&#39;, &#39;c2&#39;, &#39;c3&#39;]&#125;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;COLUMN =&gt; &#39;c1&#39;, TIMESTAMP =&gt; ts1&#125;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;COLUMN =&gt; &#39;c1&#39;, TIMERANGE =&gt; [ts1, ts2], VERSIONS =&gt; 4&#125;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;COLUMN =&gt; &#39;c1&#39;, TIMESTAMP =&gt; ts1, VERSIONS =&gt; 4&#125;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;FILTER =&gt; &quot;ValueFilter(=, &#39;binary:abc&#39;)&quot;&#125;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#39;c1&#39;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#39;c1&#39;, &#39;c2&#39;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, [&#39;c1&#39;, &#39;c2&#39;]
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;COLUMN =&gt; &#39;c1&#39;, ATTRIBUTES =&gt; &#123;&#39;mykey&#39;=&gt;&#39;myvalue&#39;&#125;&#125;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;COLUMN =&gt; &#39;c1&#39;, AUTHORIZATIONS =&gt; [&#39;PRIVATE&#39;,&#39;SECRET&#39;]&#125;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;CONSISTENCY =&gt; &#39;TIMELINE&#39;&#125;
+  hbase&gt; get &#39;t1&#39;, &#39;r1&#39;, &#123;CONSISTENCY =&gt; &#39;TIMELINE&#39;, REGION_REPLICA_ID =&gt; 1&#125;
+</code></pre>
+<pre><code class="bash">hbase(main):010:0&gt; get &#39;student&#39;,&#39;1001&#39;
+COLUMN                                 CELL
+ info1:name                            timestamp=1593241775973, value=\xE5\xBC\xA0\xE4\xB8\x89
+1 row(s)
+Took 0.0641 seconds
+</code></pre>
+<blockquote>
+<p>总结：get最大可以指定到row key，最小可以指定列</p>
+</blockquote>
+<p>细节一波，首先添加一些数据</p>
+<pre><code class="bash">hbase(main):011:0&gt; put &#39;student&#39;,&#39;1001&#39;,&#39;info1:sex&#39;,&#39;nan&#39;
+Took 0.0130 seconds
+hbase(main):012:0&gt; put &#39;student&#39;,&#39;1001&#39;,&#39;info2:addr&#39;,&#39;anhui&#39;
+Took 0.0208 seconds
+hbase(main):013:0&gt; put &#39;student&#39;,&#39;1002&#39;,&#39;info1:name&#39;,&#39;lisi&#39;
+Took 0.0074 seconds
+hbase(main):014:0&gt; put &#39;student&#39;,&#39;1002&#39;,&#39;info1:sex&#39;,&#39;nv&#39;
+Took 0.0082 seconds
+hbase(main):015:0&gt; put &#39;student&#39;,&#39;1003&#39;,&#39;info1:name&#39;,&#39;wangwu&#39;
+Took 0.0057 seconds
+hbase(main):016:0&gt; scan &#39;student&#39;
+ROW                                    COLUMN+CELL
+ 1001                                  column=info1:name, timestamp=1593241775973, value=\xE5\xBC\xA0\xE4\xB8\x89
+ 1001                                  column=info1:sex, timestamp=1593242822073, value=nan
+ 1001                                  column=info2:addr, timestamp=1593242848437, value=anhui
+ 1002                                  column=info1:name, timestamp=1593242882626, value=lisi
+ 1002                                  column=info1:sex, timestamp=1593242890679, value=nv
+ 1003                                  column=info1:name, timestamp=1593242899920, value=wangwu
+3 row(s)
+Took 0.0123 seconds
+</code></pre>
+<ul>
+<li>列名可以在添加数据的时候动态增加</li>
+<li>列名只和row key有关，虽然scan出很多行，但最终它就是3条数据</li>
+</ul>
+<p>看下面的语句</p>
+<pre><code class="bash">hbase(main):018:0&gt; scan &#39;student&#39;,&#123;STARTROW=&gt;&#39;1001&#39;,STOPROW=&gt;&#39;1003&#39;&#125;
+ROW                                    COLUMN+CELL
+ 1001                                  column=info1:name, timestamp=1593241775973, value=\xE5\xBC\xA0\xE4\xB8\x89
+ 1001                                  column=info1:sex, timestamp=1593242822073, value=nan
+ 1001                                  column=info2:addr, timestamp=1593242848437, value=anhui
+ 1002                                  column=info1:name, timestamp=1593242882626, value=lisi
+ 1002                                  column=info1:sex, timestamp=1593242890679, value=nv
+2 row(s)
+Took 0.0401 seconds
+</code></pre>
+<p><strong>它是左闭右开</strong>，当然<code>STOPROW</code>不写或者<code>STARTROW</code>不写结果应该能猜出来，参考java的<code>subString</code><br>看下面的语句</p>
+<pre><code class="bash">put &#39;student&#39;,&#39;10010&#39;,&#39;info1:name&#39;,&#39;zhaoliu&#39;
+</code></pre>
+<p>这时候我再<code>scan</code>会返回什么，2秒钟考虑🤔</p>
+<pre><code class="bash">hbase(main):020:0&gt; scan &#39;student&#39;
+ROW                                    COLUMN+CELL
+ 1001                                  column=info1:name, timestamp=1593241775973, value=\xE5\xBC\xA0\xE4\xB8\x89
+ 1001                                  column=info1:sex, timestamp=1593242822073, value=nan
+ 1001                                  column=info2:addr, timestamp=1593242848437, value=anhui
+ 10010                                 column=info1:name, timestamp=1593243313017, value=zhaoliu
+ 1002                                  column=info1:name, timestamp=1593242882626, value=lisi
+ 1002                                  column=info1:sex, timestamp=1593242890679, value=nv
+ 1003                                  column=info1:name, timestamp=1593242899920, value=wangwu
+4 row(s)
+Took 0.0162 seconds
+</code></pre>
+<p>猜对了吗，<code>Row Key</code>是按字典序进行排序，和插入顺序无关<br><br><br>这个时候工位旁边的小伙伴问了我一句，HBase的数据到底是怎么存的，存在哪里？<br>还记得当时的配置文件</p>
+<pre><code class="bash">&lt;property&gt;
+    &lt;name&gt;hbase.rootdir&lt;/name&gt;
+    &lt;value&gt;hdfs://master:9000/HBase&lt;/value&gt;
+&lt;/property&gt;
+</code></pre>
+<p>没错存在HDFS的/HBase<br><img src="https://img-blog.csdnimg.cn/20200627154740559.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>继续追，看到了什么，没错就是namespace<br><img src="https://img-blog.csdnimg.cn/20200627154833773.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>再追一次你就能看到表了（不截图了），不要放弃继续追<br><img src="https://img-blog.csdnimg.cn/20200627154942621.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>看着背影确实是个美女，走进一看懵了吧，两个隐藏文件夹，还有一个不知道是什么的文件夹，不要着急，如果我告诉你它是一个<code>Region</code>呢？<br><img src="https://img-blog.csdnimg.cn/20200627155155875.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>是不是一模一样？那就继续追吧<br><img src="https://img-blog.csdnimg.cn/20200627155309612.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>看到了什么，没错你看到列族了，如果你是第一次使用HBase，刚创建的表，添加了屈指可数的数据，那我劝你就追到这吧😄，因为里面是空的…没错因为此时的数据还在内存中，没有到刷写(flush)的阶段。（你可以等一个小时自动刷，当然手动刷也是支持的）<br><br><br>现在插播改数据操作<br>前面说过改数据也是<code>put</code>只要我的时间戳比原来的大就能实现覆盖，<strong>注意是覆盖不是删除原来的数据哟</strong></p>
+<pre><code class="bash">put &#39;student&#39;,&#39;1002&#39;,&#39;info1:name&#39;,&#39;lisi666&#39;
+</code></pre>
+<pre><code class="bash">hbase(main):023:0&gt; scan &#39;student&#39;
+ROW                                    COLUMN+CELL
+ 1001                                  column=info1:name, timestamp=1593241775973, value=\xE5\xBC\xA0\xE4\xB8\x89
+ 1001                                  column=info1:sex, timestamp=1593242822073, value=nan
+ 1001                                  column=info2:addr, timestamp=1593242848437, value=anhui
+ 10010                                 column=info1:name, timestamp=1593243313017, value=zhaoliu
+ 1002                                  column=info1:name, timestamp=1593244813675, value=lisi666
+ 1002                                  column=info1:sex, timestamp=1593242890679, value=nv
+ 1003                                  column=info1:name, timestamp=1593242899920, value=wangwu
+4 row(s)
+Took 0.0148 seconds
+</code></pre>
+<p>下面我来证明一下，原来的数据还在内存中</p>
+<pre><code class="bash">hbase(main):025:0&gt; scan &#39;student&#39;,&#123;RAW=&gt;true,VERSIONS=&gt;10&#125;
+ROW                                    COLUMN+CELL
+ 1001                                  column=info1:name, timestamp=1593241775973, value=\xE5\xBC\xA0\xE4\xB8\x89
+ 1001                                  column=info1:name, timestamp=1593241639593, value=\xE5\xBC\xA0\xE4\xB8\x89
+ 1001                                  column=info1:sex, timestamp=1593242822073, value=nan
+ 1001                                  column=info2:addr, timestamp=1593242848437, value=anhui
+ 10010                                 column=info1:name, timestamp=1593243313017, value=zhaoliu
+ 1002                                  column=info1:name, timestamp=1593244813675, value=lisi666
+ 1002                                  column=info1:name, timestamp=1593242882626, value=lisi
+ 1002                                  column=info1:sex, timestamp=1593242890679, value=nv
+ 1003                                  column=info1:name, timestamp=1593242899920, value=wangwu
+4 row(s)
+Took 0.0177 seconds
+</code></pre>
+<p>上面的命令就是查看10个版本以内的所有数据，现在相信你的数据并没有被立刻删除，只是给你返回最大的时间戳数据，让你以为我把你数据删了<br>如果你还是没有明白其中的道理，那再来一个例子<br>首先<code>get</code>一波<code>lisi666</code>，记住它的时间戳</p>
+<pre><code class="bash">hbase(main):030:0&gt; get &#39;student&#39;,&#39;1002&#39;,&#39;info1:name&#39;
+COLUMN                                 CELL
+ info1:name                            timestamp=1593245367468, value=lisi666
+1 row(s)
+Took 0.0155 seconds
+</code></pre>
+<p>上面看到的<code>put</code>例子可以指定时间戳，那我们时间戳修改到比<code>lisi666</code>小一丢丢看看</p>
+<pre><code class="bash"> put &#39;student&#39;,&#39;1002&#39;,&#39;info1:name&#39;,&#39;lisi666777&#39;,1593245367467
+</code></pre>
+<p>我们再<code>get</code>一波</p>
+<pre><code class="bash">hbase(main):033:0&gt; get &#39;student&#39;,&#39;1002&#39;,&#39;info1:name&#39;
+COLUMN                                 CELL
+ info1:name                            timestamp=1593245367468, value=lisi666
+1 row(s)
+Took 0.0343 seconds
+</code></pre>
+<p>发现数据并没有被修改，那么<code>lisi666777</code>到底有没有被插入进去呢？<br><img src="https://img-blog.csdnimg.cn/20200627161329809.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>现在明白HBase是怎么操作了的吧！<br>最后一个DDL——删除操作</p>
+<blockquote>
+<p>写在前面删除操作delete，我觉得HBase的程序员在封装API到Shell时抽风了，导致Shell中的delete设计很不合理</p>
+</blockquote>
+<p>老规矩先查<code>help</code></p>
+<pre><code class="bash">hbase(main):041:0&gt; help &#39;delete&#39;
+Put a delete cell value at specified table/row/column and optionally
+timestamp coordinates.  Deletes must match the deleted cell&#39;s
+coordinates exactly.  When scanning, a delete cell suppresses older
+versions. To delete a cell from  &#39;t1&#39; at row &#39;r1&#39; under column &#39;c1&#39;
+marked with the time &#39;ts1&#39;, do:
+
+  hbase&gt; delete &#39;ns1:t1&#39;, &#39;r1&#39;, &#39;c1&#39;, ts1
+  hbase&gt; delete &#39;t1&#39;, &#39;r1&#39;, &#39;c1&#39;, ts1
+  hbase&gt; delete &#39;t1&#39;, &#39;r1&#39;, &#39;c1&#39;, ts1, &#123;VISIBILITY=&gt;&#39;PRIVATE|SECRET&#39;&#125;
+
+The same command can also be run on a table reference. Suppose you had a reference
+t to table &#39;t1&#39;, the corresponding command would be:
+
+  hbase&gt; t.delete &#39;r1&#39;, &#39;c1&#39;,  ts1
+  hbase&gt; t.delete &#39;r1&#39;, &#39;c1&#39;,  ts1, &#123;VISIBILITY=&gt;&#39;PRIVATE|SECRET&#39;&#125;
+</code></pre>
+<p>看到帮助文档<code>delete</code>至少要三个参数，居然还要我传一个时间戳…但实际使用过程中发现时间戳可以不用写<br>先把1001的名字删了（就是我写中文，然后不识别）</p>
+<pre><code class="bash">delete &#39;student&#39;,&#39;1001&#39;,&#39;info1:name&#39;
+</code></pre>
+<pre><code class="bash">hbase(main):046:0&gt; scan &#39;student&#39;
+ROW                                    COLUMN+CELL
+ 1001                                  column=info1:sex, timestamp=1593242822073, value=nan
+ 1001                                  column=info2:addr, timestamp=1593242848437, value=anhui
+ 1002                                  column=info1:name, timestamp=1593245367468, value=lisi666
+ 1002                                  column=info1:sex, timestamp=1593242890679, value=nv
+ 1003                                  column=info1:name, timestamp=1593242899920, value=wangwu
+3 row(s)
+Took 0.0112 seconds
+</code></pre>
+<p>确实是删了，和<code>put</code>的时候考虑一样，这台数据是不是真的被删了，根据最开始说的逻辑，应该是没有被删除，只是删除的时间戳大于原先的。<br><img src="https://img-blog.csdnimg.cn/20200627182129682.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>证明HBase确实是这么做的，当查询时，发现<code>type=Delete</code>且时间戳最大，这个时候就不会返回<code>value</code>给你造成了被删除的错觉。刚才看到了删除操作也可以传一个时间戳，那我们在熟悉一下HBase这样的操作逻辑。<br>首先<code>put</code>一个值进去</p>
+<pre><code class="bash">put &#39;student&#39;,&#39;1001&#39;,&#39;info1:name&#39;,&#39;zhangsan&#39;
+</code></pre>
+<p>这个时候肯定能<code>get</code>到</p>
+<pre><code class="bash">hbase(main):050:0&gt; get &#39;student&#39;,&#39;1001&#39;
+COLUMN                                 CELL
+ info1:name                            timestamp=1593253497595, value=zhangsan
+ info1:sex                             timestamp=1593242822073, value=nan
+ info2:addr                            timestamp=1593242848437, value=anhui
+1 row(s)
+Took 0.0139 seconds
+</code></pre>
+<p>现在我们传一个比当前<code>put</code>操作小一丢丢的时间戳</p>
+<pre><code class="bash">delete &#39;student&#39;,&#39;1001&#39;,&#39;info1:name&#39;,1593253497594
+</code></pre>
+<p>我们再查看一波</p>
+<pre><code class="bash">hbase(main):052:0&gt; get &#39;student&#39;,&#39;1001&#39;
+COLUMN                                 CELL
+ info1:name                            timestamp=1593253497595, value=zhangsan
+ info1:sex                             timestamp=1593242822073, value=nan
+ info2:addr                            timestamp=1593242848437, value=anhui
+1 row(s)
+Took 0.0151 seconds
+</code></pre>
+<p>结果证明并没有被删除。关于<code>delete</code>就说到这，下面来吐糟一波<code>delete</code><br>我们<code>delete</code>一直是用的都是定位到列，那么我们可以定位到列族，直接删除列族可不可以呢</p>
+<pre><code class="bash">hbase(main):053:0&gt; delete &#39;student&#39;,&#39;1001&#39;,&#39;info1&#39;
+Took 0.0119 seconds
+hbase(main):054:0&gt; get &#39;student&#39;,&#39;1001&#39;
+COLUMN                                 CELL
+ info1:name                            timestamp=1593253497595, value=zhangsan
+ info1:sex                             timestamp=1593242822073, value=nan
+ info2:addr                            timestamp=1593242848437, value=anhui
+1 row(s)
+Took 0.0103 seconds
+</code></pre>
+<p>结果是没有删除成功😠这时候又有一个疑问我可以直接根据<code>row key</code>删除吗?</p>
+<pre><code class="bash">hbase(main):057:0&gt; delete &#39;student&#39;,&#39;1001&#39;
+
+ERROR: wrong number of arguments (2 for 3)
+
+For usage try &#39;help &quot;delete&quot;&#39;
+
+Took 0.0020 seconds
+</code></pre>
+<p><strong>直接给我报错？？？好吧！果然shell就是给你玩一玩，到了API操作都是可以做到的。</strong><br>在MySQL是不是有个<code>truncat</code>直接清空表，当然HBase也是有的</p>
+<pre><code class="bash">hbase(main):058:0&gt; truncate &#39;student&#39;
+Truncating &#39;student&#39; table (it may take a while):
+Disabling table...
+Truncating table...
+Took 2.3316 seconds
+</code></pre>
+<p>这个命令设计的就很人性化，先把你表停了在清空数据。</p>
+<h2 id="2-3-浅谈VERSIONS"><a href="#2-3-浅谈VERSIONS" class="headerlink" title="2.3 浅谈VERSIONS"></a>2.3 浅谈VERSIONS</h2><p>前面在修改表结构的时候说到过<code>VERSIONS</code>我们设置成了3，这样HBase给我们保留最大的个数为3，举个例子吧。</p>
+<pre><code class="bash">put &#39;student&#39;,&#39;1005&#39;,&#39;info1:name&#39;,&#39;zhangsan&#39;
+put &#39;student&#39;,&#39;1005&#39;,&#39;info1:name&#39;,&#39;lisi&#39;
+put &#39;student&#39;,&#39;1005&#39;,&#39;info1:name&#39;,&#39;wangwu&#39;
+put &#39;student&#39;,&#39;1005&#39;,&#39;info1:name&#39;,&#39;zhaoliu&#39;
+</code></pre>
+<p>我么可以通过下面命令获取数据</p>
+<pre><code class="bash">hbase(main):018:0&gt; get &#39;student&#39;,&#39;1005&#39;,&#123;COLUMN=&gt;&#39;info1:name&#39;,VERSIONS=&gt;4&#125;
+COLUMN                                 CELL
+ info1:name                            timestamp=1593260002688, value=zhaoliu
+ info1:name                            timestamp=1593259997155, value=wangwu
+ info1:name                            timestamp=1593259766686, value=lisi
+1 row(s)
+Took 0.0493 seconds
+</code></pre>
+<p>发现了什么，<code>get &#39;student&#39;,&#39;1005&#39;,&#123;COLUMN=&gt;&#39;info1:name&#39;,VERSIONS=&gt;4&#125;</code>设置成4不管用，真正看的是建表时设置的<code>VERSIONS</code>，此时<code>student</code>表的<code>VERSIONS</code>是3（默认为1），这就意味着保存数据的最大数是3，即使你存了很多份，最终只会给你保留最新的三个版本的数据，当然你只存一份就只能给你保存一份。</p>
+<blockquote>
+<p>到这里HBase的Shell就结束了，下面将是HBase的原理部分</p>
+</blockquote>
+<h1 id="三、HBase进阶"><a href="#三、HBase进阶" class="headerlink" title="三、HBase进阶"></a>三、HBase进阶</h1><h2 id="3-1-架构原理"><a href="#3-1-架构原理" class="headerlink" title="3.1 架构原理"></a>3.1 架构原理</h2><p><img src="https://img-blog.csdnimg.cn/20200627203448257.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="HBase详细架构图"><br>&emsp;&emsp; 我们知道<code>HBase</code>依赖<code>HDFS</code>也依赖<code>Zookeeper</code>，那么首先出来的应该是<code>HDFS</code>，这是他底层的存储地，随便画几个<code>DataNode</code>无所谓，然后<code>HBase</code>还依赖<code>Zookeeper</code>，因此我们在启动<code>HBase</code>之前需要先启动它们。那接下轮到<code>HBase</code>启动了，<code>HBase</code>需要启动两大进程<code>HMaster</code>和<code>HRegionServer</code>，这个<code>Master</code>工作太累了，它需要把某些工作交给<code>Zookeeper</code>，后面在说具体都交给些什么任务。<code>Master</code>主要管理<code>DDL</code>相关的操作，操作表，操作命名空间，<code>HRegionServer</code>则是管理<code>DML</code>数据层面的操作，涉及数据的增删改查，同时<code>Master</code>也会管理<code>HRegionServer</code>，因为我的<code>Region</code>到底是给哪个<code>HRegionServer</code>维护由<code>Master</code>说的算，万一某个<code>HRegionServer</code>挂掉了，也需要<code>Master</code>重新分配给其它人来维护。<br>&emsp;&emsp; 在谈<code>HRegionServer</code>之前还有一个<code>HLog</code>，这个又叫预写入日志<code>Write-Ahead logfile</code>在<code>/HBase/wal</code>文件夹中，相当于<code>HDFS</code>的<code>edits</code>文件，由于数据一开始并没有落盘存在内存中，若内存崩掉数据就会丢失，<code>HLog</code>会实时记录操作。接下来就是<strong>一堆</strong><code>HRegion</code>，一个表对应一个或者多个<code>HRegion</code>，<code>HRegion</code>里面就是列族，也就是<code>Store</code>，它们的存储是隔离的，就像上面看的<code>info1</code>,<code>info2</code>，对于HBase来说它的列就是数据，在插入数据之前是没有列这个概念的，随着插入数据而存在。<br>&emsp;&emsp; 下面来看看<code>Mem Store</code>，主要是做刷写操作（flush），上面我们做个一个操作证明<code>HBase</code>是按照<code>Row Key</code>的字典序排列的，因此数据首先存到<code>Mem Store</code>中进行排序，等待刷写时机将其写入磁盘中这就是<code>HFile</code>，因此将来会有很多个文件，当触发全局刷写条件（即<code>HRegionServer</code>的刷写条件）时可能有的<code>Mem Store</code>只有几k，就会产生很多小文件，这时候<code>HBase</code>就会做合并（compact）操作，当合并的文件过大又会做拆分（split）操作。<br>&emsp;&emsp; 关于<code>Store File</code>和<code>HFile</code>的关系：<code>HFile</code>和<code>.txt</code>，<code>.csv</code>等同等级，是一种存储格式，<code>Store File</code>只是我们对刷写下来的文件的一种命名，这个文件以<code>HFile</code>格式存储，虽然<code>Store File</code>是<code>HBase</code>的一个组件，但它真正活跃在<code>DataNode</code>上，作用在磁盘上，然后就是一系列的<code>HDFS</code>读写操作。<br>&emsp;&emsp; 那么<code>Zookeeper</code>到底为<code>HMaster</code>做了什么？如果是<code>DDL</code>那没话说客户端需要请求<code>HMaster</code>，若进行<code>DML</code>操作，客户端会请求<code>Zookeeper</code>然后直接到<code>HRegionServer</code>不经过<code>HMaster</code>，即使<code>HMaster</code>挂了，也可以进行读写操作，因此<code>Zookeeper</code>作为<code>HBase</code>接待客户端的第一管家，分担<code>HBase</code>的<code>DML</code>操作。</p>
+<h2 id="3-2-写流程"><a href="#3-2-写流程" class="headerlink" title="3.2 写流程"></a>3.2 写流程</h2><blockquote>
+<p>对于HBase来说，它的读比写慢</p>
+</blockquote>
+<p><img src="https://img-blog.csdnimg.cn/20200628155955260.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="写流程"><br>&emsp;&emsp; 在写数据之前，首先肯定有一个客户端<code>client</code>，<code>Zookeeper</code>、<code>HDFS</code>、<code>HBase</code>得起来且<code>wal</code>、<code>region</code>、<code>store</code>都已经存在，这有这些前置条件成立才能进行写操作<br>&emsp;&emsp; 假设我们需要<code>put &#39;student&#39;,&#39;1001&#39;,&#39;info1:name&#39;,&#39;zhangsan&#39;</code>，首先<code>client</code>会去<code>Zookeeper</code>拿<code>meta</code>表所在的<code>RegionServer</code>，那么<code>meta</code>表到底存了什么内容，其实它存了一些表的元数据，比如我们要<code>put student</code>那么我的学生表到底存在哪个<code>HRegionServer</code>上就记录在<code>meta</code>表上。<br><img src="https://img-blog.csdnimg.cn/20200628201326163.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br><img src="https://img-blog.csdnimg.cn/20200628202136451.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>大致能看到我的<code>meta</code>表存在<code>slave02</code>节点上，那么<code>client</code>就会到这个节点上找<code>meta</code>表缓存一下（下次直接找缓存，若缓存没有就继续找zk）并且返回<code>student</code>表位置，接下来<code>client</code>就找到了我们需要插入的表，与指定节点建立连接后首先写到<code>HLog</code>中，对于<code>client</code>来说任务就结束了，它认为我数据写到内存中就不会丢失，不需要等到数据<code>flush</code>操作。<br>&emsp;&emsp;下面我们看看<code>meta</code>表内容到底是什么<br><img src="https://img-blog.csdnimg.cn/20200628202736673.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>&emsp;&emsp;它记录了所有表元数据，因此<code>client</code>主要就是取红线框住的部分与其建立连接。老版本的<code>HBase</code>还有一个<code>-root-</code>表，它是基于<code>meta</code>也要做切分考虑，因此老版本的逻辑是<code>client</code>向<code>Zookeeper</code>取<code>-root-</code>表，这个表存的是<code>meta</code>表的位置，然后从<code>meta</code>表取将要操作的表的位置信息。设计之初<code>HBase</code>害怕<code>meta</code>表过大所以让他加入切分逻辑，因此需要额外一张表来维护，但实际开发发现<code>meta</code>表根本就达不到切分要求（大于10G），因此新版本<code>HBase</code>摒弃了<code>-root-</code>表，在表进行切分操作时首先判断是不是<code>meta</code>表，让<code>meta</code>表不进入切分逻辑，这样仅用<code>Zookeeper</code>节点去维护即可。<br><img src="https://img-blog.csdnimg.cn/20200628204526537.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>可以看到老版本（0.90.x）还让你去扫描<code>-root-</code>表，和我们扫描<code>meta</code>表是一样的逻辑</p>
+<h2 id="3-3-源码分析写流程"><a href="#3-3-源码分析写流程" class="headerlink" title="3.3 源码分析写流程"></a>3.3 源码分析写流程</h2><blockquote>
+<p>HBase的源码写的是真的好😄</p>
+</blockquote>
+<p>追<code>HRegion</code>这个类，因为最终的操作是一个个<code>Region</code>，可以搜一波<code>STEP 1</code><br><img src="https://img-blog.csdnimg.cn/20200628214516794.png" alt="在这里插入图片描述"><br>第一步：获取锁。主要是为了读写分离，采用的是<code>java.util.concurrent.locks.Lock</code><br><img src="https://img-blog.csdnimg.cn/20200628215331115.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>第二步：更新时间戳。更新的是服务端时间，因此即使windows时间真的无法与linux同步，我们调用API时就不传入时间戳即可。<br><img src="https://img-blog.csdnimg.cn/20200628215422312.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>第三步：构建<code>wal</code>文件<br><img src="https://img-blog.csdnimg.cn/20200628215452535.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>第四步：将记录操作的<code>wal</code>追加到最终的<code>wal</code>中，注意这里它没有选择同步，即没有写到<code>HDFS</code>中。<br><img src="https://img-blog.csdnimg.cn/20200628215525136.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>第五步：回写到<code>memstore</code>，what？<code>memstore</code>在哪？它是在内存中呀！难道它不怕这个时候断电，导致数据丢失吗？<br><img src="https://img-blog.csdnimg.cn/20200628215556735.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>第六步：释放锁，也就意味着写流程结束。这时候所有的东西都在内存中。<br><img src="https://img-blog.csdnimg.cn/20200628215717419.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>第七步：同步<code>wal</code>，即将其写到<code>HDFS</code>上。<br><img src="https://img-blog.csdnimg.cn/20200628215749630.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>最大的疑问：为什么<code>HBase</code>选择在写流程结束之后同步<code>wal</code>文件呢？万一断电岂不可惜，这里它做了一个事务的操作，看下面代码<br><img src="https://img-blog.csdnimg.cn/20200628220029534.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>当同步失败的时候，删除写入<code>memstore</code>的数据并且回滚，注意这个逻辑是定义在<code>finally</code>的<br><br><br>总结：</p>
+<ol>
+<li><code>client</code>访问<code>zookeeper</code>，从中获取<code>hbase:meta</code>表所在的<code>HResgionServer</code></li>
+<li>访问对应的<code>HResgionServer</code>，获取<code>hbase:meta</code>写入缓存并从中去读预操作表在哪个<code>HResgionServer</code>哪个<code>Region</code>中</li>
+<li>与对应的目标节点通讯</li>
+<li>将操作追加到<code>wal</code>中</li>
+<li>将数据写入<code>memstore</code>中，并在其中进行排序</li>
+<li>同步<code>wal</code>，返回<code>ack</code>，<code>client</code>写操作到此结束</li>
+<li>等待<code>memstore</code>刷写时机，将数据刷写到<code>HFile</code></li>
+</ol>
+<h2 id="3-4-Flush"><a href="#3-4-Flush" class="headerlink" title="3.4 Flush"></a>3.4 Flush</h2><p><img src="https://img-blog.csdnimg.cn/20200629190731896.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h3 id="3-4-1-HRegionServer级别的flush"><a href="#3-4-1-HRegionServer级别的flush" class="headerlink" title="3.4.1 HRegionServer级别的flush"></a>3.4.1 HRegionServer级别的flush</h3><p>&emsp;&emsp;内存在一定条件下进行刷写操作，那么我们想到的条件有哪些？无非就是时间和大小。注意不同的<code>store</code>对应着不同的列族，即最终存储再不同的文件夹下面（隔离存储，可以提高效率），而之后的合并操作也只是对一个文件夹下的<code>Store File</code>进行合并。下面我们来看看刷写的时机都有哪些？<br>看一下<code>HBase</code>的默认配置文件<br><code>hbase.regionserver.global.memstore.size</code><br><img src="https://img-blog.csdnimg.cn/20200629192947861.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>&emsp;&emsp;当一个<code>HRegionServer</code>的全部<code>memstore</code>总量达到了<code>jvm</code>默认堆大小的<code>40%</code>时，触发<code>HRegionServer</code>级别的<code>flush</code>刷写，阻塞客户端的读写，<code>HBase</code>认为达到了这个级别很容易引起内存崩溃，因此它会暂停客户端的所有操作直到刷写全部完成。<br><code>hbase.regionserver.global.memstore.size.lower.limit</code><br><img src="https://img-blog.csdnimg.cn/20200629193615333.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>&emsp;&emsp;默认值为<code>hbase.regionserver.global.memstore.size</code>的<code>95%</code>，当一个<code>HRegionServer</code>中<code>memstore</code>总量达到这个数值<code>HBase</code>就开始读写，但是不会阻塞客户端读写操作，和<code>hbase.regionserver.global.memstore.size</code>搭配使用的意思就是，当达到<code>hbase.regionserver.global.memstore.size.lower.limit</code>时开始刷写，但若客户端的写操作速度大于刷写操作导致<code>memstore</code>总量持续增加达到了<code>hbase.regionserver.global.memstore.size</code>规定的大小，这就意味着客户端写数据太快，必须暂停一下等待<code>flush</code>完成；若客户端写操作速度小于刷写操作时，<code>memstore</code>总量下降直到低于<code>hbase.regionserver.global.memstore.size.lower.limit</code>刷写操作结束。<br><code>hbase.regionserver.optionalcacheflushinterval</code><br><img src="https://img-blog.csdnimg.cn/20200629200204656.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>&emsp;&emsp;一个小时自动刷写，若设置为0则关闭此功能，是一种“优先级略低的刷写”，这是什么意思呢？比如当客户端持续的进行写操作，但是写的数据特别小一个小时都没有达到默认堆的<code>40%</code>的<code>95%</code>，是不会触发刷写操作。这一个小时是指当前<code>HRegionServer</code>即这个节点内存最后一次编辑时间，对应的场景是长时间不操作，即这一个小时都没有新的数据进来那就进行刷写操作</p>
+<blockquote>
+<p><code>HRegionServer</code>级别的<code>flush</code>会按照<code>memstore</code>的大小进行顺序刷写，都要去刷写。</p>
+</blockquote>
+<h3 id="3-4-2-HRegion级别的flush"><a href="#3-4-2-HRegion级别的flush" class="headerlink" title="3.4.2 HRegion级别的flush"></a>3.4.2 HRegion级别的flush</h3><p><code>hbase.hregion.memstore.flush.size</code><br><img src="https://img-blog.csdnimg.cn/20200629201312233.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>&emsp;&emsp;当单个<code>memstore</code>达到<code>128M</code>时<code>HRegion</code>进行刷写操作，将其写入<code>Store File</code>中<br>还有一个老版本的配置<code>hbase.regionserver.max.logs</code>，即控制<code>wal</code>的大小，防止内存特别大，那么达到<code>40%</code>才进行刷写，那得刷多少数据呀。可以说<code>wal</code>和<code>memstore</code>是对等的。但目前版本这个配置不对用户开放，可以在<a target="_blank" rel="noopener" href="https://hbase.apache.org/book.html">HBase官网文档</a>中找到。</p>
+<h2 id="3-5-读流程"><a href="#3-5-读流程" class="headerlink" title="3.5 读流程"></a>3.5 读流程</h2><p><img src="https://img-blog.csdnimg.cn/20200629203749959.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>&emsp;&emsp;和写流程类似，首先<code>client</code>向<code>Zookeeper</code>拿到<code>meta</code>表所在的<code>HRegionServer</code>，去对应的节点读取<code>meta</code>表并返回将要操作的表所在的<code>HRegionServer</code>并且写入缓存以便下次使用，从对应的节点去读取文件，在读流程中会有一个<code>Block Cache</code>将最新读取的内容写入缓存中，使用的是是<code>LRU</code>算法，因此读取数据就面临着三个选择<code>Block Cache</code>（内存）、<code>MenStore</code>（内存）、<code>StoreFile</code>（磁盘），<del>一般来说能从内存读绝不从磁盘读，例如先在内存找没有则去磁盘找，并且写入缓存中，但对于<code>HBase</code>来说不是这样的</del> ，这样做将会导致非常严重的后果。<br>&emsp;&emsp;上面的操作忽略了<code>HBase</code>最重要的元素——时间戳，设想下面这种情况，<code>put &#39;stu&#39;,&#39;1001&#39;,&#39;info:name&#39;,&#39;zhangsan&#39;,timestmap1</code>，这个时候数据大概率没有落盘，那么我手动<code>flush</code>将其写入<code>HDFS</code>中，随后我再次<code>put &#39;stu&#39;,&#39;1001&#39;,&#39;info:name&#39;,&#39;lisi&#39;,timestmap2</code>且<code>timestmap1 &gt; timestmap2</code>，这个时候我通过<code>get</code>获取<code>1001</code>的数据，结果应该是<code>zhangsan</code>，但<code>zhangsan</code>此时是在磁盘中，内存中的却是<code>lisi</code>，是不是出问题了…<br>&emsp;&emsp;真正的操作是，同时读内存和磁盘并在<code>Block Cache</code>中进行比较，返回时间戳大的数据，同时存到缓存中方便下次读取。那么<code>Block Cache</code>的作用是什么？当<code>Block Cache</code>有的那个文件将不再扫磁盘的那个文件，注意是不扫缓存的那个文件，磁盘该扫还得扫，因此无论如何都要扫磁盘，当数据量大的时候甚至做全盘扫描，这就对应着前面说的那句话 ==HBase的写比读快==</p>
+<h2 id="3-6-StoreFile-Compaction"><a href="#3-6-StoreFile-Compaction" class="headerlink" title="3.6 StoreFile Compaction"></a>3.6 StoreFile Compaction</h2><p>&emsp;&emsp;总结<code>HBase</code>的刷写逻辑发现，这种机制的刷写会产生很多小文件，因为最小的刷写都是<code>HRegion</code>级别的，一个<code>HRegion</code>会存在很多个<code>Store</code>对应着很多<code>memstore</code>存在刷写时部分<code>memstore</code>数据量少的情况，而<code>HDFS</code>是不擅长管理小文件的，因此<code>HBase</code>必须得有处理小文件的机制，即<code>compact</code>。<code>HBase</code>合表的机制分为两种分别是<code>Minor Compaction</code>和<code>Major Compaction</code>,它们的区别在于<code>Minor Compaction</code>属于小合并，将相邻的几个小文件合并成稍微大一点的文件（相邻的的意思就是在一个store中，因为不同的store是分文件夹存储，即仅合并一个文件夹下的），而<code>Major Compaction</code>属于大合并，不管文件大小全部合成一个文件。它们最大的区别是<code>Minor Compaction</code>合并不会删除数据，即一些被打了<code>Delete</code>标记或旧<code>VERSIONS</code>文件是不会删除的，而<code>Major Compaction</code>合并文件时会对其进行删除操作，且官网用的词是<code>rewrite</code>重写，意思就是读到内存修改再写回磁盘，因此<code>Major Compaction</code>非常消耗资源。下面是<code>Compaction</code>的一些配置<br><img src="https://img-blog.csdnimg.cn/2020063017164667.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>&emsp;&emsp;默认配置是7天进行一次<code>Major Compaction</code>，一到这个时间点就触发，万一此时客户端正在进行大规模的读写操作将非常危险，因此建议设置为0，找一个合适的时间手动调用<code>major_compact</code><br><img src="https://img-blog.csdnimg.cn/20200630172203321.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>&emsp;&emsp;当一个<code>Store</code>即一个文件夹下有三个文件时会自动触发<code>Major compact</code>，考虑到数据的一致性，并不会立刻删除合并前的文件即使你是手动触发合并操作，亲测虚拟机在2分钟后自动删除，当不手动触发时，也不会一旦到了三个文件就立刻合并，并没有关注过到底多长时间自动合并（估计得按小时计算）。</p>
+<pre><code class="bash">hbase(main):007:0&gt; put &#39;student&#39;,&#39;1001&#39;,&#39;info1:name&#39;,&#39;zhangsan&#39;
+hbase(main):008:0&gt; flush                                                                       
+</code></pre>
+<p>通过这种方式让一个<code>Region</code>里面刷写出4个文件<br><img src="https://img-blog.csdnimg.cn/20200630175042844.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>吃个饭的时间都没有自动合并，于是我开始手动合并</p>
+<pre><code class="bash">hbase(main):014:0&gt; compact &#39;student&#39;
+</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/20200630175234676.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>手动合并出一个文件（当文件数多于三个是，<code>compact</code>底层走的也是<code>major_compact</code>），静等几分钟合表前的数据就会被删除。<br><img src="https://img-blog.csdnimg.cn/20200630175504269.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h2 id="3-7-来点“恶心”的操作"><a href="#3-7-来点“恶心”的操作" class="headerlink" title="3.7 来点“恶心”的操作"></a>3.7 来点“恶心”的操作</h2><p>&emsp;&emsp;根据上面的读写流程发现根本就没有<code>master</code>什么事，确实在关于数据的增删改查是不经过<code>master</code>的，因此下面我们试图<code>kill</code>掉<code>HMaster</code>进程测试是否能够继续进行<code>curd</code>操作。<br><img src="https://img-blog.csdnimg.cn/20200630180021837.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>此时<code>HMaster</code>已经被干掉了，然后启动客户端进行<code>curd</code>，发现并不影响我的操作<br><img src="https://img-blog.csdnimg.cn/20200630180253600.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<pre><code class="bash">hbase(main):006:0&gt; create &#39;stu&#39;,&#39;info&#39;
+
+ERROR: KeeperErrorCode = NoNode for /hbase/master
+
+For usage try &#39;help &quot;create&quot;&#39;
+
+Took 0.0934 seconds
+</code></pre>
+<p>但是建表语句就会报错，且是<code>Zookeeper</code>的报错，因此之后的<code>API</code>操作只要连接<code>Zookeeper</code>即可</p>
+<blockquote>
+<p>突然想到我漏了一个小的知识点，那就是flush也能删除数据，但和合表操作删除不太一样。可以做这样的实验，连续put两次数据让后一条数据覆盖前一条，然后手动flush表，此时再scan ‘stu’,{RAW=&gt;true,VERSIONS=&gt;10}，会发现原先的数据被删除了，但若你put一次flush一次就不会被删除，因此flush会根据设定的VERSIONS值删除内存中的数据，已经刷写到磁盘的就不归flush管。</p>
+</blockquote>
+<h2 id="3-8-Split"><a href="#3-8-Split" class="headerlink" title="3.8 Split"></a>3.8 Split</h2><blockquote>
+<p>核心原理最后一部分</p>
+</blockquote>
+<p>&emsp;&emsp;当持续进行合表操作时，表会越来越大，大到一定程度就要进行切分，那么切分也有它的时机。<br><code>hbase.hregion.max.filesize</code><br><img src="https://img-blog.csdnimg.cn/20200630184309692.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxODU4NDAy,size_1,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>任何列族超过这个大小（10G）对于老版本来说会将其一分为二，但是新版本（0.94版本之后）会有一个公式，当某个列族下所有文件超过<code>min(hbase.hregion.max.filesize,hbase.hregion.memstore.flush.size*R^2)</code><br>即<code>min(10G,128M*R^2)</code>其中<code>R</code>为<code>Region</code>数，切分是按照<code>Row Key</code>。</p>
+<blockquote>
+<p>HBase核心原理到此结束，另一篇博客将开启HBase实战及其优化</p>
+</blockquote>
+
+    </div>
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+    <div id="comment">
+        <div id="gitalk-container">
+        </div>
+    </div>
+    
+</div>
+                     
+<footer id="footer">
+    <div class="footer-wrap">
+        <div>
+            © 2020 - 2021 小王是个弟弟
+            <span class="footer-icon">
+                <a-icon type="flag" theme="filled" /></span>
+            @wjun
+        </div>
+        <div></div>
+        <div>Based on the <a target="_blank" rel="noopener" href="https://hexo.io/">Hexo Engine</a> & <a
+                target="_blank" rel="noopener" href="https://github.com/korilin/hexo-theme-particle">Particle Theme</a></div>
+        
+    </div>
+
+</footer>
+
+<script src="/js/highlight.min.js"></script>
+<script src="/js/particle.js"></script>
+                </div>
+            </div>
+        </transition>
+    </div>
+
+    <script>
+    new Vue({
+        el: "#layout",
+        data: {
+            show_page: false,
+            onload_menu: false,
+            menu_show: false,
+            card_top: 100
+        },
+        created: function () {
+            var that = this
+            window.onload = function () {
+                that.show_page = true
+                document.getElementById("loadcontent").style.opacity = 0
+                setTimeout(function () {
+                    document.getElementById("loadleft").style.width = 0
+                    document.getElementById("loadright").style.width = 0
+                }, 300)
+                setTimeout(function () {
+                    document.getElementById("loading").style = "display:none"
+                }, 600)
+            }
+        },
+        mounted: function () {
+            var that = this
+            window.addEventListener('scroll', function (e) {
+                that.menu_show = false
+            })
+        },
+        methods: {
+            home_click: function () {
+                window.scrollTo({
+                    top: window.innerHeight - 80,
+                    behavior: "smooth",
+                });
+            }
+        }
+    })
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script>
+    const gitalk = new Gitalk({
+        clientID: '0ca314933bd70869d267',
+        clientSecret: '3b24c3fbc84be7b88a449649357e9ae2c7a4ef4c',
+        repo: 'issue',      // The repository of store comments,
+        owner: 'kpretty',
+        admin: ['kpretty'],
+        language: 'zh-CN',
+        id: location.pathname,      // Ensure uniqueness and length less than 50
+        distractionFreeMode: true  // Facebook-like distraction free mode
+    })
+    gitalk.render('gitalk-container')
+</script>
+
+</body>
+
+</html>
