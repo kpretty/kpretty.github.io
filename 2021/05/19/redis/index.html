@@ -214,18 +214,18 @@
 <pre><code class="shell">cd cd redis-6.2.2;make
 </code></pre>
 <p>等待编译结束</p>
-<p>![iShot2021-04-21 15.35.08](/Users/wjun/Desktop/博客临时图床/iShot2021-04-21 15.35.08.png)</p>
+<p><img src="https://s3.jpg.cm/2021/05/24/ZJQrR.png" alt="iShot2021-04-21 15.35.08"></p>
 <p>安装 redis 到指定目录</p>
 <pre><code class="shell">make PREFIX=~/redis install
 </code></pre>
-<p>![iShot2021-04-21 15.41.18](/Users/wjun/Desktop/博客临时图床/iShot2021-04-21 15.41.18.png)</p>
+<p><img src="https://s3.jpg.cm/2021/05/24/ZJdCz.png" alt="iShot2021-04-21 15.41.18"></p>
 <p>复制源文件中的 redis.conf 到安装目录</p>
 <pre><code class="shell">cp ../redis-6.2.2/redis.conf ./
 </code></pre>
 <p>这时候除了安装目录，其他文件都可以删了</p>
 <h2 id="1-2-启动-redis"><a href="#1-2-启动-redis" class="headerlink" title="1.2 启动 redis"></a>1.2 启动 redis</h2><p>redis 有两种启动方式：前台启动和后台启动</p>
 <p>前台启动[不推荐]：运行 redis-server</p>
-<p>![iShot2021-04-21 15.45.43](/Users/wjun/Desktop/博客临时图床/iShot2021-04-21 15.45.43.png)</p>
+<p><img src="https://s3.jpg.cm/2021/05/24/ZJlqu.png" alt="iShot2021-04-21 15.45.43"></p>
 <p>启动成功后该 session 将阻塞无法使用</p>
 <p>后台启动[推荐]：修改配置文件 redis.conf 将 daemonize no 改为 daemonize yes 后，指定配置文件启动</p>
 <pre><code class="shell">./redis-server ../redis.conf
