@@ -85,6 +85,13 @@
             <span>tags</span>
         </a>
         
+        <a href="/chatroom">
+            <span>
+                <a-icon type="compass" theme="filled" />
+            </span>
+            <span>chatroom</span>
+        </a>
+        
     </div>
 
     <div :class="'phone-menu ' + menu_show" id="phone-menu">
@@ -141,6 +148,15 @@
                 </div>
             </a>
             
+            <a href="/chatroom">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="compass" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">chatroom</div>
+                </div>
+            </a>
+            
         </div>
         <div class="curtain" v-show="menu_show"></div>
     </div>
@@ -149,7 +165,7 @@
                 </div>
 
                 <div id="main">
-                     
+                    
 <link rel="stylesheet" href="/css/post-body.css">
 <div class="article">
     <div>
@@ -158,16 +174,18 @@
     <div class="info">
         <span class="date">
             <span class="icon">
-                <a-icon type="calendar" theme="filled" />
+                <a-icon type="calendar" theme="filled"/>
             </span>
-            2021/5/18
+            
+                2021/5/18
+            
         </span>
 
         
-        <span class="category">
+            <span class="category">
             <a href="/categories/search">
                 <span class="icon">
-                    <a-icon type="book" theme="filled" />
+                    <a-icon type="book" theme="filled"/>
                 </span>
                 search
             </a>
@@ -176,19 +194,19 @@
 
         
 
-        <span class="tags">
+            <span class="tags">
             <span class="icon">
-                <a-icon type="tags" theme="filled" />
+                <a-icon type="tags" theme="filled"/>
             </span>
-            
-            <span class="tag">
                 
-                <a href="/tags/es" style=color:#ffa2c4>
+                    <span class="tag">
+                        
+                        <a href="/tags/es" style=color:#ff7d73>
                     es
                 </a>
             </span>
-            
-        </span>
+                
+            </span>
         
     </div>
 
@@ -620,11 +638,11 @@ public class Bootstrap &#123;
     </div>
 
     
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
-    <div id="comment">
-        <div id="gitalk-container">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+        <div id="comment">
+            <div id="gitalk-container">
+            </div>
         </div>
-    </div>
     
 </div>
                      
