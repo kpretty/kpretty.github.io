@@ -185,7 +185,7 @@
                 
                     <span class="tag">
                         
-                        <a href="/tags/develop" style=color:#00bcd4>
+                        <a href="/tags/develop" style=color:#ffa2c4>
                     develop
                 </a>
             </span>
@@ -264,7 +264,8 @@
 <p><strong>混乱你的代码</strong>。使用 XML，XML 的强大是无人能及的，使用 XML 你可以把本来只要 10 行的代码变成 100 行。而且，还要逼着别人也有 XML。（参看，信 XML 得永生，信 XML 得自信）</p>
 <p><strong>分解条件表达式</strong>。如：把 a==100 分解成，a&gt;99 &amp;&amp; a&lt;101</p>
 <p><strong>学会利用分号</strong>。如：if ( a );else;{   int d;   d = c;}</p>
-<p>间接转型。如：把 double 转 string，写成 new Double(d).toString() 而不是 Double.toString(d)<br>大量使用嵌套。一个 NB 的程序员可以在一行代码上使用超过 10 层的小括号（），或是在一个函数里使用超过 20 层的语句嵌套{}，把嵌套的 if else 转成 [? :] 也是一件很 NB 的事。</p>
+<p><strong>间接转型</strong>。如：把 double 转 string，写成 new Double(d).toString() 而不是 Double.toString(d)</p>
+<p><strong>大量使用嵌套</strong>。一个 NB 的程序员可以在一行代码上使用超过 10 层的小括号（），或是在一个函数里使用超过 20 层的语句嵌套{}，把嵌套的 if else 转成 [? :] 也是一件很 NB 的事。</p>
 <p><strong>长代码行</strong>。一行的代码越长越好，这样别人阅读时就需要来来回回的。</p>
 <p><strong>不要过早的return</strong>。不要使用 break，这样，你就需要至少 5 层以上的 if-else 来处理错误。</p>
 <p>**不要使用{}**。不要在 if else 使用{}，尤其是在你重量地使用 if-else 嵌套时，你甚至可以在其中乱缩进代码，这样一来，就算是最有经验的程序员也会踩上陷阱。</p>
