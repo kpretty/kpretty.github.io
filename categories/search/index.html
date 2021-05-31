@@ -85,6 +85,13 @@
             <span>tags</span>
         </a>
         
+        <a href="/tool">
+            <span>
+                <a-icon type="compass" theme="filled" />
+            </span>
+            <span>tools</span>
+        </a>
+        
     </div>
 
     <div :class="'phone-menu ' + menu_show" id="phone-menu">
@@ -141,6 +148,15 @@
                 </div>
             </a>
             
+            <a href="/tool">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="compass" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">tools</div>
+                </div>
+            </a>
+            
         </div>
         <div class="curtain" v-show="menu_show"></div>
     </div>
@@ -166,7 +182,7 @@
         
         
         <span>
-            <a href="/categories/大数据/" style=background:#00a596>
+            <a href="/categories/大数据/" style=background:#ff7d73>
                 <span class="icon">
                     <a-icon type="book" theme="filled" /></span>
                 大数据
@@ -176,7 +192,7 @@
         
         
         <span>
-            <a href="/categories/数据库/" style=background:#03a9f4>
+            <a href="/categories/数据库/" style=background:#00bcd4>
                 <span class="icon">
                     <a-icon type="book" theme="filled" /></span>
                 数据库
@@ -214,7 +230,7 @@
                             
                             <span class="tag">
                                 
-                                <a href="/tags/es" style=color:#ffa2c4>
+                                <a href="/tags/es" style=color:#ff7d73>
                                     es
                                 </a>
                             </span>
