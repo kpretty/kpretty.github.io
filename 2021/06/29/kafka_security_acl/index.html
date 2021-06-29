@@ -1,0 +1,555 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hans ">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小王是个弟弟Kafka 安全认证及权限控制</title>
+    <meta name="author" content="wjun">
+    <meta name="description" content=" ">
+    <meta name="keywords" content="bigdata java db ">
+    <link rel="icon" href="/avatar.png">
+    <link rel="stylesheet" href="/css/antd.min.css">
+    
+    <link rel="stylesheet" href="/css/full-theme.css">
+    
+    <script src="/js/vue.js"></script>
+    <script src="/js/antd.min.js"></script>
+<meta name="generator" content="Hexo 5.3.0"></head>
+
+<body>
+
+    <div id="loading"
+        style="height: 100vh; width: 100%; position: fixed;display: flex;z-index: 200; justify-content: space-between;">
+        <div id="loadleft" style="width: 50%;background-color: #ffffff;transition: width 0.6s ease-out;"></div>
+        <div id="loadright" style="width: 50%;background-color: #ffffff;transition: width 0.6s ease-out;"></div>
+        <div
+            style="position: fixed; height: 100vh; width: 100%;display: flex;justify-content: center;align-items: center;">
+            <div id="loadcontent"
+                style="width:400px;height:400px;padding:50px;border-radius:50%;display:flex;justify-content:center;align-items:center;border:solid 10px#a3ddfb; text-align:center;opacity:1;transition:opacity 0.3s ease-out;">
+                <div>
+                    <h2>LOADING...</h2>
+                    <p>加载过慢请开启缓存(浏览器默认开启)</p>
+                    <div>
+                        <img src="/dancingkitty.gif" alt="loading">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="layout">
+        <transition name="into">
+            <div v-show="show_page" style="display: none;">
+                <div id="menu_show">
+                     
+<nav id="menu">
+    <div class="desktop-menu">
+        <a href="/">
+            <span class="title">小王是个弟弟</span>
+        </a>
+        
+        <a href="/">
+            <span>
+                <a-icon type="home" theme="filled" />
+            </span>
+            <span>home</span>
+        </a>
+        
+        <a href="/about">
+            <span>
+                <a-icon type="idcard" theme="filled" />
+            </span>
+            <span>about</span>
+        </a>
+        
+        <a href="/archives">
+            <span>
+                <a-icon type="folder" theme="filled" />
+            </span>
+            <span>archives</span>
+        </a>
+        
+        <a href="/categories/大数据">
+            <span>
+                <a-icon type="book" theme="filled" />
+            </span>
+            <span>categories</span>
+        </a>
+        
+        <a href="/tags/hive">
+            <span>
+                <a-icon type="tags" theme="filled" />
+            </span>
+            <span>tags</span>
+        </a>
+        
+        <a href="/tool">
+            <span>
+                <a-icon type="compass" theme="filled" />
+            </span>
+            <span>tools</span>
+        </a>
+        
+    </div>
+
+    <div :class="'phone-menu ' + menu_show" id="phone-menu">
+        <div :class="'title'" @click="menu_show=!menu_show">
+            <span style="margin-right: 10px;">
+                <a-icon type="appstore" theme="filled" />
+            </span>
+            <span>小王是个弟弟</span>
+        </div>
+        <div class="items" v-show="menu_show">
+            
+            <a href="/">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="home" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">home</div>
+                </div>
+            </a>
+            
+            <a href="/about">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="idcard" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">about</div>
+                </div>
+            </a>
+            
+            <a href="/archives">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="folder" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">archives</div>
+                </div>
+            </a>
+            
+            <a href="/categories/大数据">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="book" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">categories</div>
+                </div>
+            </a>
+            
+            <a href="/tags/hive">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="tags" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">tags</div>
+                </div>
+            </a>
+            
+            <a href="/tool">
+                <div class="item">
+                    <div style="min-width:20px; max-width:50px; width: 10%">
+                        <a-icon type="compass" theme="filled" />
+                    </div>
+                    <div style="min-width:100px;max-width: 150%;width: 20%;">tools</div>
+                </div>
+            </a>
+            
+        </div>
+        <div class="curtain" v-show="menu_show"></div>
+    </div>
+
+</nav>
+                </div>
+
+                <div id="main">
+                    
+<link rel="stylesheet" href="/css/post-body.css">
+<div class="article">
+    <div>
+        <h1>Kafka 安全认证及权限控制 </h1>
+    </div>
+    <div class="info">
+        <span class="date">
+            <span class="icon">
+                <a-icon type="calendar" theme="filled"/>
+            </span>
+            
+                2021/6/29
+            
+        </span>
+
+        
+            <span class="category">
+            <a href="/categories/大数据">
+                <span class="icon">
+                    <a-icon type="book" theme="filled"/>
+                </span>
+                大数据
+            </a>
+        </span>
+        
+
+        
+
+            <span class="tags">
+            <span class="icon">
+                <a-icon type="tags" theme="filled"/>
+            </span>
+                
+                    <span class="tag">
+                        
+                        <a href="/tags/kafka" style=color:#03a9f4>
+                    kafka
+                </a>
+            </span>
+                
+            </span>
+        
+    </div>
+
+    <div class="content" v-pre>
+        <p><img src="https://s3.jpg.cm/2021/06/29/IW44p4.png"></p>
+<blockquote>
+<p>作者：wjun</p>
+<p>平台：MacOS</p>
+<p>版本：Kafka 2.4.1 、Zookeeper 3.6.2</p>
+</blockquote>
+<a id="more"></a>
+
+<h1 id="一、Zookeeper-配置-SASL"><a href="#一、Zookeeper-配置-SASL" class="headerlink" title="一、Zookeeper 配置 SASL"></a>一、Zookeeper 配置 SASL</h1><p>若只关注 kafka 的安全认证，不需要配置 Zookeeper 的 SASL，但 kafka 会在 zk 中存储一些必要的信息，因此 zk 的安全认证也会影响到 kafka 😃😃😃</p>
+<h2 id="1-1-新建-zoo-jaas-conf-文件"><a href="#1-1-新建-zoo-jaas-conf-文件" class="headerlink" title="1.1 新建 zoo_jaas.conf 文件"></a>1.1 新建 zoo_jaas.conf 文件</h2><p><code>zoo_jaas.conf</code>文件名、文件所在路径没有特殊要求，一般放置在<code>$&#123;ZOOKEEPER_HOME&#125;/conf</code>目录下</p>
+<pre><code>Server &#123;
+    org.apache.kafka.common.security.plain.PlainLoginModule required
+    username=&quot;admin&quot;
+    password=&quot;admin&quot;
+    user_kafka=&quot;kafka@123&quot;;
+&#125;;
+</code></pre>
+<ol>
+<li>Server.username、Server.password为 Zookeeper 内部通信的用户名和密码，因此保证每个 zk 节点该属性一致即可</li>
+<li>Server.user_xxx 中 xxx 为自定义用户名，用于 zkClient 连接所使用的用户名和密码，即为 kafka 创建的用户名</li>
+</ol>
+<h2 id="1-2-配置-zoo-conf-文件"><a href="#1-2-配置-zoo-conf-文件" class="headerlink" title="1.2 配置 zoo.conf 文件"></a>1.2 配置 zoo.conf 文件</h2><pre><code>authProvider.1=org.apache.zookeeper.server.auth.SASLAuthenticationProvider
+requireClientAuthScheme=sasl
+jaasLoginRenew=3600000
+zookeeper.sasl.client=true
+</code></pre>
+<p><code>zookeeper.sasl.client</code>设置为<code>true</code>，开启客户端身份验证，否则<code>zoo_jaas.conf</code>中配置的用户名将不起作用，客户端仍然可以无 jaas 文件连接，只是带有 WARNNING 而已</p>
+<h2 id="1-3-导入依赖包"><a href="#1-3-导入依赖包" class="headerlink" title="1.3 导入依赖包"></a>1.3 导入依赖包</h2><p>因为使用的权限验证类为：<code>org.apache.kafka.common.security.plain.PlainLoginModule</code>，所以需要 kafka 相关 jar 包，新建文件夹 zk_sasl_lib，如下：</p>
+<pre><code>kafka-clients-2.4.1.jar
+lz4-java-1.6.0.jar
+slf4j-api-1.7.28.jar
+slf4j-log4j12-1.7.28.jar
+snappy-java-1.1.7.3.jar
+</code></pre>
+<h2 id="1-4-修改-zkEnv-sh-文件"><a href="#1-4-修改-zkEnv-sh-文件" class="headerlink" title="1.4 修改 zkEnv.sh 文件"></a>1.4 修改 zkEnv.sh 文件</h2><p>修改前：</p>
+<pre><code class="shell">export SERVER_JVMFLAGS=&quot;-Xmx$&#123;ZK_SERVER_HEAP&#125;m $SERVER_JVMFLAGS&quot;
+</code></pre>
+<p>修改后：</p>
+<pre><code class="shell">for jar in /Users/wjun/env/zookeeper/zk_sasl_lib/*.jar;
+do
+        CLASSPATH=&quot;$jar:$CLASSPATH&quot;
+done
+
+export SERVER_JVMFLAGS=&quot;-Xmx$&#123;ZK_SERVER_HEAP&#125;m $SERVER_JVMFLAGS -Djava.security.auth.login.config=/Users/wjun/env/zookeeper/conf/zoo_jaas.conf&quot;
+</code></pre>
+<p>重启 Zookeeper 服务即可</p>
+<h1 id="二、Kakfa-配置-SASL"><a href="#二、Kakfa-配置-SASL" class="headerlink" title="二、Kakfa 配置 SASL"></a>二、Kakfa 配置 SASL</h1><h2 id="2-1-新建-kafka-server-jaas-conf-文件"><a href="#2-1-新建-kafka-server-jaas-conf-文件" class="headerlink" title="2.1 新建 kafka_server_jaas.conf 文件"></a>2.1 新建 kafka_server_jaas.conf 文件</h2><p><code>kafka_server_jaas.conf</code>文件名和存放路径没有要求，一般放置在<code>$&#123;KAFKA_HOME&#125;/config</code>目录下</p>
+<pre><code>KafkaServer &#123;
+ org.apache.kafka.common.security.plain.PlainLoginModule required
+ username=&quot;admin&quot;
+ password=&quot;admin@123&quot;
+ user_admin=&quot;admin@123&quot;
+ user_producer=&quot;producer@123&quot;
+ user_consumer=&quot;consumer@123&quot;;
+&#125;;
+Client&#123;
+ org.apache.kafka.common.security.plain.PlainLoginModule required
+ username=&quot;kafka&quot;
+ password=&quot;kafka@123&quot;;
+&#125;;
+</code></pre>
+<ol>
+<li>KafkaServer.username、KafkaServer.password 为 broker 内部通信的用户名密码，同上</li>
+<li>KafkaServer.user_xxx 其中 xxx 必须和 KafkaServer.username 配置的用户名一致，密码也一致</li>
+<li>KafkaServer.user_producer、KafkaServer.user_consumer 为了之后的 ACL 做准备，达到消费者生产者使用不同账号且消费者账号只能消费数据，生产者账号只能生产数据</li>
+<li>Client.username、Client.password 填写 Zookeeper 中注册的账号密码，用于 broker 与 zk 的通信（若 zk 没有配置 SASL 可以忽略、若 zookeeper.sasl.client 为 false 也可以忽略只是带有⚠️，日志如下）</li>
+</ol>
+<pre><code>[2021-06-29 17:14:30,204] WARN SASL configuration failed: javax.security.auth.login.LoginException: No JAAS configuration section named &#39;Client&#39; was found in specified JAAS configuration file: &#39;/Users/wjun/env/kafka/config/kafka_server_jaas.conf&#39;. Will continue connection to Zookeeper server without SASL authentication, if Zookeeper server allows it. (org.apache.zookeeper.ClientCnxn)
+</code></pre>
+<h2 id="2-2-修改-server-properties-文件"><a href="#2-2-修改-server-properties-文件" class="headerlink" title="2.2 修改 server.properties 文件"></a>2.2 修改 server.properties 文件</h2><pre><code class="properties">listeners=SASL_PLAINTEXT://localhost:9092
+security.inter.broker.protocol=SASL_PLAINTEXT
+sasl.mechanism.inter.broker.protocol=PLAIN
+sasl.enabled.mechanisms=PLAIN
+allow.everyone.if.no.acl.found=false
+authorizer.class.name=kafka.security.auth.SimpleAclAuthorizer
+super.users=User:admin
+</code></pre>
+<p>super.users 配置超级用户，该用户不受之后的 ACL 配置影响</p>
+<h2 id="2-3-修改启动脚本"><a href="#2-3-修改启动脚本" class="headerlink" title="2.3 修改启动脚本"></a>2.3 修改启动脚本</h2><p>修改 kafka-server-start.sh 文件，使之加载到 kafka_server_jaas.conf 文件</p>
+<p>修改前：</p>
+<pre><code class="shell">if [ &quot;x$KAFKA_HEAP_OPTS&quot; = &quot;x&quot; ]; then
+    export KAFKA_HEAP_OPTS=&quot;-Xmx1G -Xms1G&quot;
+fi
+</code></pre>
+<p>修改后：</p>
+<pre><code class="shell">if [ &quot;x$KAFKA_HEAP_OPTS&quot; = &quot;x&quot; ]; then
+    export KAFKA_HEAP_OPTS=&quot;-Xmx1G -Xms1G -Djava.security.auth.login.config=/Users/wjun/env/kafka/config/kafka_server_jaas.conf&quot;
+fi
+</code></pre>
+<p>重启 kafka 服务即可</p>
+<h2 id="2-4-Java-API-验证"><a href="#2-4-Java-API-验证" class="headerlink" title="2.4 Java API 验证"></a>2.4 Java API 验证</h2><p>代码如下：</p>
+<pre><code class="java">public class TProducer &#123;
+    public static void main(String[] args) throws IOException &#123;
+        // 创建配置类
+        Properties properties = new Properties();
+        // 加载生产者配置文件
+        properties.load(TProducer.class.getClassLoader().getResourceAsStream(&quot;producer.properties&quot;));
+        // 创建生产者对象
+        KafkaProducer&lt;String, String&gt; producer = new KafkaProducer&lt;&gt;(properties);
+
+        ProducerRecord&lt;String, String&gt; producerRecord = new ProducerRecord&lt;&gt;(&quot;demo1&quot;, &quot;key_1&quot;, &quot;value_1&quot;);
+
+        producer.send(producerRecord, (metadata, exception) -&gt; &#123;
+            if (exception == null) &#123;
+                System.out.println(&quot;消息发送至 --&gt; &quot; + metadata.topic() + &quot; 偏移量为：&quot; + metadata.offset());
+            &#125; else &#123;
+                System.out.println(&quot;消息发送失败 &quot; + exception.getMessage());
+            &#125;
+        &#125;);
+
+        producer.close();
+    &#125;
+&#125;
+</code></pre>
+<p>其中 producer.properties 如下：</p>
+<pre><code class="properties">############################# Producer Basics #############################
+
+# list of brokers used for bootstrapping knowledge about the rest of the cluster
+# format: host1:port1,host2:port2 ...
+bootstrap.servers=localhost:9092
+
+# specify the compression codec for all data generated: none, gzip, snappy, lz4
+compression.type=none
+
+# name of the partitioner class for partitioning events; default partition spreads data randomly
+# partitioner.class=
+
+# the maximum amount of time the client will wait for the response of a request
+#request.timeout.ms=
+
+# how long `KafkaProducer.send` and `KafkaProducer.partitionsFor` will block for
+#max.block.ms=
+
+# the producer will wait for up to the given delay to allow other records to be sent so that the sends can be batched together
+#linger.ms=
+
+# the maximum size of a request in bytes
+#max.request.size=
+
+# the default batch size in bytes when batching multiple records sent to a partition
+#batch.size=
+
+# the total bytes of memory the producer can use to buffer records waiting to be sent to the server
+#buffer.memory=
+
+key.serializer=org.apache.kafka.common.serialization.StringSerializer
+value.serializer=org.apache.kafka.common.serialization.StringSerializer
+
+security.protocol=SASL_PLAINTEXT
+sasl.mechanism=PLAIN
+</code></pre>
+<p>security.protocol=SASL_PLAINTEXT、sasl.mechanism=PLAIN 必须配置</p>
+<p>此时运行会报</p>
+<pre><code class="java">Caused by: java.lang.IllegalArgumentException: Could not find a &#39;KafkaClient&#39; entry in the JAAS configuration. System property &#39;java.security.auth.login.config&#39; is not set
+    at org.apache.kafka.common.security.JaasContext.defaultContext(JaasContext.java:133)
+    at org.apache.kafka.common.security.JaasContext.load(JaasContext.java:98)
+    at org.apache.kafka.common.security.JaasContext.loadClientContext(JaasContext.java:84)
+    at org.apache.kafka.common.network.ChannelBuilders.create(ChannelBuilders.java:124)
+    at org.apache.kafka.common.network.ChannelBuilders.clientChannelBuilder(ChannelBuilders.java:67)
+    at org.apache.kafka.clients.ClientUtils.createChannelBuilder(ClientUtils.java:99)
+    at org.apache.kafka.clients.producer.KafkaProducer.newSender(KafkaProducer.java:450)
+    at org.apache.kafka.clients.producer.KafkaProducer.&lt;init&gt;(KafkaProducer.java:421)
+    ... 2 more
+</code></pre>
+<p>原因是需要用户名密码才能连接到 Kafka，即 kafka_server_jaas.conf 配置中的</p>
+<h3 id="方式一："><a href="#方式一：" class="headerlink" title="方式一："></a>方式一：</h3><p>创建 kafka_client_jaas.conf 文件</p>
+<pre><code>KafkaClient&#123;
+ org.apache.kafka.common.security.plain.PlainLoginModule required
+ username=&quot;producer&quot;
+ password=&quot;producer@123&quot;;
+&#125;;
+</code></pre>
+<p>程序启动时添加参数 <code>-Djava.security.auth.login.config=/Users/wjun/Documents/Program/Java/kafka_demo/src/main/resources/kafka_client_jaas.conf</code></p>
+<p><img src="https://s3.jpg.cm/2021/06/29/IW4BaX.png"></p>
+<h3 id="方式二："><a href="#方式二：" class="headerlink" title="方式二："></a>方式二：</h3><p>在 producer.properties 添加：<code>sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=&quot;producer&quot; password=&quot;producer@123&quot;;</code></p>
+<p>启动程序成功生产数据</p>
+<pre><code class="java">[main] INFO org.apache.kafka.common.security.authenticator.AbstractLogin - Successfully logged in.
+[main] INFO org.apache.kafka.common.utils.AppInfoParser - Kafka version: 2.4.1
+[main] INFO org.apache.kafka.common.utils.AppInfoParser - Kafka commitId: c57222ae8cd7866b
+[main] INFO org.apache.kafka.common.utils.AppInfoParser - Kafka startTimeMs: 1624965871345
+[kafka-producer-network-thread | producer-1] INFO org.apache.kafka.clients.Metadata - [Producer clientId=producer-1] Cluster ID: l3Agv3weRiG27uo5EDj4KA
+[main] INFO org.apache.kafka.clients.producer.KafkaProducer - [Producer clientId=producer-1] Closing the Kafka producer with timeoutMillis = 9223372036854775807 ms.
+消息发送至 --&gt; demo1 偏移量为：18
+</code></pre>
+<p>消费者同理</p>
+<pre><code class="java">public class TConsumer &#123;
+    public static void main(String[] args) throws IOException &#123;
+        // 创建配置类
+        Properties properties = new Properties();
+        // 加载生产者配置文件
+        properties.load(TProducer.class.getClassLoader().getResourceAsStream(&quot;consumer.properties&quot;));
+        // 构建消费者
+        KafkaConsumer&lt;String, String&gt; consumer = new KafkaConsumer&lt;&gt;(properties);
+        // 订阅主题
+        consumer.subscribe(Collections.singletonList(&quot;demo1&quot;));
+
+        ConsumerRecords&lt;String, String&gt; records;
+
+        while (true) &#123;
+            records = consumer.poll(Duration.ofSeconds(1));
+            for (ConsumerRecord&lt;String, String&gt; record : records) &#123;
+                System.out.println(record.key() + &quot;--&quot; + record.value());
+            &#125;
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<p>其中 consumer.properties 如下：</p>
+<pre><code class="properties"># comma separated host:port pairs, each corresponding to a zk
+bootstrap.servers=localhost:9092
+
+# timeout in ms for connecting to zookeeper
+zookeeper.connection.timeout.ms=6000
+
+#consumer group id
+group.id=test-consumer-group
+
+#consumer timeout
+#consumer.timeout.ms=5000
+
+key.deserializer=org.apache.kafka.common.serialization.StringDeserializer
+value.deserializer=org.apache.kafka.common.serialization.StringDeserializer
+
+#offset submission method
+enable.auto.commit=true
+
+# earliest or latest
+auto.offset.reset=latest
+
+security.protocol=SASL_PLAINTEXT
+sasl.mechanism=PLAIN
+
+sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=&quot;producer&quot; password=&quot;producer@123&quot;;
+</code></pre>
+<p>此时会发现并不能消费，异常信息为：</p>
+<pre><code class="java">Exception in thread &quot;main&quot; org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [demo1]
+</code></pre>
+<p>原因是该消费者组没有消费主题的权限，即 ACL 操作，当然换成 admin 是不存在这个问题的</p>
+<h1 id="三、Kafka-ACL"><a href="#三、Kafka-ACL" class="headerlink" title="三、Kafka ACL"></a>三、Kafka ACL</h1><p>配置用户具有某个主题的写权限，即生产数据</p>
+<pre><code class="shell">kafka-acls.sh --authorizer-properties zookeeper.connect=localhost:2181 --add --allow-principal User:producer --producer --topic demo1
+</code></pre>
+<p>配置用户具有某个主题的读权限，即消费数据</p>
+<pre><code class="shell">kafka-acls.sh --authorizer-properties zookeeper.connect=localhost:2181 --add --allow-principal User:consumer --consumer --topic demo1 --group test-consumer-group
+</code></pre>
+<p>查看 ACL 列表</p>
+<pre><code class="shell">kafka-acls.sh --authorizer-properties zookeeper.connect=localhost:2181 --list --topic demo1
+</code></pre>
+<p>同时也可以取消用户权限，还可以限制 ip 等，具体 ACL操作见 <a target="_blank" rel="noopener" href="https://kafka.apache.org/documentation/#security_authz">kafka官方文档</a></p>
+
+    </div>
+
+    
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+        <div id="comment">
+            <div id="gitalk-container">
+            </div>
+        </div>
+    
+</div>
+                     
+<footer id="footer">
+    <div class="footer-wrap">
+        <div>
+            © 2020 - 2021 小王是个弟弟
+            <span class="footer-icon">
+                <a-icon type="flag" theme="filled" /></span>
+            @wjun
+        </div>
+        <div></div>
+        <div>Based on the <a target="_blank" rel="noopener" href="https://hexo.io/">Hexo Engine</a> & <a
+                target="_blank" rel="noopener" href="https://github.com/korilin/hexo-theme-particle">Particle Theme</a></div>
+        
+    </div>
+
+</footer>
+
+<script src="/js/highlight.min.js"></script>
+<script src="/js/particle.js"></script>
+                </div>
+            </div>
+        </transition>
+    </div>
+
+    <script>
+    new Vue({
+        el: "#layout",
+        data: {
+            show_page: false,
+            onload_menu: false,
+            menu_show: false,
+            card_top: 100
+        },
+        created: function () {
+            var that = this
+            window.onload = function () {
+                that.show_page = true
+                document.getElementById("loadcontent").style.opacity = 0
+                setTimeout(function () {
+                    document.getElementById("loadleft").style.width = 0
+                    document.getElementById("loadright").style.width = 0
+                }, 300)
+                setTimeout(function () {
+                    document.getElementById("loading").style = "display:none"
+                }, 600)
+            }
+        },
+        mounted: function () {
+            var that = this
+            window.addEventListener('scroll', function (e) {
+                that.menu_show = false
+            })
+        },
+        methods: {
+            home_click: function () {
+                window.scrollTo({
+                    top: window.innerHeight - 80,
+                    behavior: "smooth",
+                });
+            }
+        }
+    })
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script>
+<script>
+    const gitalk = new Gitalk({
+        clientID: '0ca314933bd70869d267',
+        clientSecret: '3b24c3fbc84be7b88a449649357e9ae2c7a4ef4c',
+        repo: 'issue',      // The repository of store comments,
+        owner: 'kpretty',
+        admin: ['kpretty'],
+        language: 'zh-CN',
+        id: md5(location.pathname),      // Ensure uniqueness and length less than 50
+        distractionFreeMode: true  // Facebook-like distraction free mode
+    })
+    gitalk.render('gitalk-container')
+</script>
+
+</body>
+
+</html>
