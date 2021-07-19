@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小王是个弟弟</title>
+    <title>小王是个弟弟初识 Vue</title>
     <meta name="author" content="wjun">
     <meta name="description" content=" ">
     <meta name="keywords" content="bigdata java db ">
@@ -165,147 +165,177 @@
                 </div>
 
                 <div id="main">
-                     
-<div class="categories-tags">
-    
-    <div class="all-s">
-        
-        
-        <span>
-            <a href="/tags/es/" style=background:#ffa2c4>
-                <span class="icon">
-                    <a-icon type="tag" theme="filled" />
-                </span>
-                es
-            </a>
-        </span>
-        
-        
-        
-        <span>
-            <a href="/tags/Vue/" style=background:#00bcd4>
-                <span class="icon">
-                    <a-icon type="tag" theme="filled" />
-                </span>
-                Vue
-            </a>
-        </span>
-        
-        
-        
-        <span>
-            <a href="/tags/develop/" style=background:#03a9f4>
-                <span class="icon">
-                    <a-icon type="tag" theme="filled" />
-                </span>
-                develop
-            </a>
-        </span>
-        
-        
-        
-        <span>
-            <a href="/tags/kafka/" style=background:#03a9f4>
-                <span class="icon">
-                    <a-icon type="tag" theme="filled" />
-                </span>
-                kafka
-            </a>
-        </span>
-        
-        
-        
-        <span>
-            <a href="/tags/hive/" style=background:#ff7d73>
-                <span class="icon">
-                    <a-icon type="tag" theme="filled" />
-                </span>
-                hive
-            </a>
-        </span>
-        
-        
-        
-        <span>
-            <a href="/tags/redis/" style=background:#ffa2c4>
-                <span class="icon">
-                    <a-icon type="tag" theme="filled" />
-                </span>
-                redis
-            </a>
-        </span>
-        
-        
-        
-        <span>
-            <a href="/tags/hbase/" style=background:#ffa2c4>
-                <span class="icon">
-                    <a-icon type="tag" theme="filled" />
-                </span>
-                hbase
-            </a>
-        </span>
-        
-        
-        
-        <span>
-            <a href="/tags/hadoop/" style='background:linear-gradient(120deg, #9abbf7 0%, #ffbbf4 100%)'>
-                <span class="icon">
-                    <a-icon type="tag" theme="filled" />
-                </span>
-                hadoop
-            </a>
-        </span>
-        
-        
+                    
+<link rel="stylesheet" href="/css/post-body.css">
+<div class="article">
+    <div>
+        <h1>初识 Vue </h1>
     </div>
-    <div id="archives">
-        
-        <a-timeline>
-            <a-timeline-item color="#a5c2f5">
-                <a-card hoverable>
-                    <div class="item-time">2021/5/21</div>
-                    <a href="/2021/05/21/hadoop_core_principles/">
-                        <h3>Hadoop 核心原理</h3>
-                    </a>
-                    <div class="info">
-                        
-                        <span class="category">
-                            <a href="/categories/大数据">
-                                <span class="icon">
-                                    <a-icon type="book" theme="filled" />
-                                </span>
-                                大数据
-                            </a>
-                        </span>
-                        
+    <div class="info">
+        <span class="date">
+            <span class="icon">
+                <a-icon type="calendar" theme="filled"/>
+            </span>
+            
+                2021/7/19
+            
+        </span>
 
+        
+            <span class="category">
+            <a href="/categories/前端">
+                <span class="icon">
+                    <a-icon type="book" theme="filled"/>
+                </span>
+                前端
+            </a>
+        </span>
+        
+
+        
+
+            <span class="tags">
+            <span class="icon">
+                <a-icon type="tags" theme="filled"/>
+            </span>
+                
+                    <span class="tag">
                         
-                        <span class="tags">
-                            <span class="icon">
-                                <a-icon type="tags" theme="filled" />
-                            </span>
-                            
-                            <span class="tag">
-                                
-                                <a href="/tags/hadoop" style=color:#00bcd4>
-                                    hadoop
-                                </a>
-                            </span>
-                            
-                        </span>
-                        
-                    </div>
-                </a-card>
-            </a-timeline-item>
-        </a-timeline>
+                        <a href="/tags/Vue" style=color:#00bcd4>
+                    Vue
+                </a>
+            </span>
+                
+            </span>
         
     </div>
-    <script>
-        new Vue({
-            el: '#archives'
-        })
-    </script>
+
+    <div class="content" v-pre>
+        <img src="https://s3.jpg.cm/2021/07/19/IemqnL.png" style="zoom:80%;"  alt="center"/>
+
+
+
+<p>Vue (读音 /vjuː/，类似于 <strong>view</strong>) 是一套用于构建用户界面的<strong>渐进式框架</strong></p>
+<a id="more"></a>
+
+<p>本章总结：</p>
+<ol>
+<li>想让Vue工作，就必须创建一个Vue实例，且要传入一个配置对象；</li>
+<li>容器里的代码依然符合html规范，只不过混入了一些特殊的Vue语法；</li>
+<li>容器里的代码被称为【Vue模板】；</li>
+<li>Vue实例和容器是一一对应的；</li>
+<li>真实开发中只有一个Vue实例，并且会配合着组件一起使用；</li>
+<li>中的xxx要写js表达式，且xxx可以自动读取到data中的所有属性；</li>
+<li>一旦data中的数据发生改变，那么页面中用到该数据的地方也会自动更新；</li>
+</ol>
+<hr>
+
+<p><strong>准备好一个HTML模板</strong></p>
+<pre><code class="html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;初识Vue&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p><strong>引入Vue</strong></p>
+<pre><code class="html">&lt;script type=&quot;text/javascript&quot; src=&quot;../js/vue.js&quot;&gt;&lt;/script&gt;
+</code></pre>
+<p>这里引入的是vue的开发版本，包含完整的警告和调试模式；而正产版本则剔除了警告同时压缩体积。</p>
+<p><img src="https://s3.jpg.cm/2021/07/19/Iek0GR.png"></p>
+<p>去除框选出的生产提示，可修改Vue配置</p>
+<pre><code class="html">&lt;script type=&quot;text/javascript&quot;&gt;
+    Vue.config.productionTip = false //阻止 vue 在启动时生成生产提示
+&lt;/script&gt;
+</code></pre>
+<p><strong>准备容器</strong></p>
+<pre><code class="html">&lt;div id=&quot;demo&quot;&gt;
+    &lt;h1&gt;Hello，World！&lt;/h1&gt;
+&lt;/div&gt;
+</code></pre>
+<p><strong>创建Vue示例</strong></p>
+<pre><code class="html">&lt;script type=&quot;text/javascript&quot;&gt;
+    Vue.config.productionTip = false //阻止 vue 在启动时生成生产提示。
+
+    //创建Vue实例
+    new Vue(&#123;
+        el: &#39;#demo&#39;, //el用于指定当前Vue实例为哪个容器服务，值通常为css选择器字符串。
+        data: &#123; //data中用于存储数据，数据供el所指定的容器去使用，值我们暂时先写成一个对象。
+            msg: &#39;World !&#39;
+        &#125;
+    &#125;)
+
+&lt;/script&gt;
+</code></pre>
+<p>此时可以将容器标签体内需要动态替换的部分，使用 vue 自带的语法将数据放入容器指定位置上</p>
+<p><strong>完整html</strong></p>
+<pre><code class="html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;/&gt;
+    &lt;title&gt;初识Vue&lt;/title&gt;
+    &lt;!-- 引入Vue --&gt;
+    &lt;script type=&quot;text/javascript&quot; src=&quot;../js/vue.js&quot;&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;!--
+    初识Vue：
+        1.想让Vue工作，就必须创建一个Vue实例，且要传入一个配置对象；
+        2.root容器里的代码依然符合html规范，只不过混入了一些特殊的Vue语法；
+        3.root容器里的代码被称为【Vue模板】；
+        4.Vue实例和容器是一一对应的；
+        5.真实开发中只有一个Vue实例，并且会配合着组件一起使用；
+        6.&#123;&#123;xxx&#125;&#125;中的xxx要写js表达式，且xxx可以自动读取到data中的所有属性；
+        7.一旦data中的数据发生改变，那么页面中用到该数据的地方也会自动更新；
+
+        注意区分：js表达式 和 js代码(语句)
+                1.表达式：一个表达式会产生一个值，可以放在任何一个需要值的地方：
+                            (1). a
+                            (2). a+b
+                            (3). demo(1)
+                            (4). x === y ? &#39;a&#39; : &#39;b&#39;
+
+                2.js代码(语句)
+                            (1). if()&#123;&#125;
+                            (2). for()&#123;&#125;
+--&gt;
+
+&lt;!-- 准备好一个容器 --&gt;
+&lt;div id=&quot;demo&quot;&gt;
+    &lt;h1&gt;Hello，&#123;&#123;name.toUpperCase()&#125;&#125;，&#123;&#123;address&#125;&#125;&lt;/h1&gt;
+&lt;/div&gt;
+
+&lt;script type=&quot;text/javascript&quot;&gt;
+    Vue.config.productionTip = false //阻止 vue 在启动时生成生产提示。
+
+    //创建Vue实例
+    new Vue(&#123;
+        el: &#39;#demo&#39;, //el用于指定当前Vue实例为哪个容器服务，值通常为css选择器字符串。
+        data: &#123; //data中用于存储数据，数据供el所指定的容器去使用，值我们暂时先写成一个对象。
+            name: &#39;World !&#39;,
+            address: &#39;北京&#39;
+        &#125;
+    &#125;)
+
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+
+    </div>
+
+    
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+        <div id="comment">
+            <div id="gitalk-container">
+            </div>
+        </div>
+    
 </div>
                      
 <footer id="footer">
@@ -369,6 +399,22 @@
             }
         }
     })
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script>
+<script>
+    const gitalk = new Gitalk({
+        clientID: '0ca314933bd70869d267',
+        clientSecret: '3b24c3fbc84be7b88a449649357e9ae2c7a4ef4c',
+        repo: 'issue',      // The repository of store comments,
+        owner: 'kpretty',
+        admin: ['kpretty'],
+        language: 'zh-CN',
+        id: md5(location.pathname),      // Ensure uniqueness and length less than 50
+        distractionFreeMode: true  // Facebook-like distraction free mode
+    })
+    gitalk.render('gitalk-container')
 </script>
 
 </body>
