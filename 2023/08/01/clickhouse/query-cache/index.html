@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="utf8" />
+    <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+    <title>
+      
+        clickhouse 查询缓存 | Youth Hope Fun
+      
+    </title>
+    <meta name="description" content="" />
+    <meta name="keywords" content="big data,olap,code" />
+    
+      <link rel="apple-touch-icon"
+            sizes="180x180"
+            href="/images/apple-touch-icon.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="32x32"
+            href="/images/favicon-32x32.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="16x16"
+            href="/images/favicon-16x16.png" />
+    
+    
+      <link rel="mask-icon"
+            href="/images/logo.svg"
+            color="" />
+    
+    
+    
+      
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/regular.ttf);
+        font-weight: regular;
+    }
+  </style>
+
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/bold.ttf);
+        font-weight: bold;
+    }
+  </style>
+
+
+    
+    <link rel="stylesheet"
+          type="text/css"
+          href='/css/layout.css' />
+    
+      <script>
+          var _hmt = _hmt || [];
+          (function() {
+              var hm = document.createElement("script");
+              hm.src = "https://hm.baidu.com/hm.js?eac8d81fcf4d967c1dd1edbcc2f81719";
+              var s = document.getElementsByTagName("script")[0];
+              s.parentNode.insertBefore(hm, s);
+          })();
+      </script>
+    
+    
+  <link rel="stylesheet" type="text/css" href="/css/post.css" />
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+
+  <meta name="generator" content="Hexo 6.3.0"></head>
+  <body>
+    <div class="head">
+      <div class="nav">
+        <a href='/' class="nav-logo">
+          <img alt="logo" height="60px" width="60px" src="/images/logo.svg" />
+        </a>
+        <input id="navBtn" type="checkbox" />
+        <div class="nav-menu">
+          
+            
+              <a class="nav-menu-item" href="/bigdata">大数据</a>
+            
+              <a class="nav-menu-item" href="/algorithm">算法</a>
+            
+              <a class="nav-menu-item" href="/other">其他</a>
+            
+          
+        </div>
+        <label class="nav-btn" for="navBtn"></label>
+      </div>
+    </div>
+    <div class="body">
+      
+  <article class="post-content">
+    <div class="post-inner">
+      <div class="post-content__head">
+        <div class="post-title">clickhouse 查询缓存</div>
+        <div class="post-info">
+          
+  <a href="/tags/clickhouse/" class="post-tag">#clickhouse</a>
+
+
+          <span class="post-date">2023-08-01</span>
+        </div>
+      </div>
+      
+      <div class="post-content__body">
+        
+          <div class="post-gallery">
+            
+          </div>
+        
+        <p>为了实现最佳性能，数据库需要优化其内部数据存储和处理管道的每一步。但是数据库执行的最好的工作是根本没有完成的工作！缓存是一种特别流行的技术，它通过存储早期计算的结果或远程数据来避免不必要的工作，而访问这些数据的成本往往很高。在今天的博文中，介绍一下 ClickHouse 缓存系列的最新成员——查询缓存，在 v23.1 版本中作为实验性特性。</p>
+<span id="more"></span>
+
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-31/clickhouse-cache.png" alt="clickhouse-cache" style="zoom:50%;" />
+
+<h1 id="一、缓存一致性问题"><a href="#一、缓存一致性问题" class="headerlink" title="一、缓存一致性问题"></a>一、缓存一致性问题</h1><p>在实操 clickhouse 的查询缓存前需要先了解一下缓存事务问题，查询缓存通常可以分为事务一致和事务不一致。</p>
+<p>在事务一致缓存中，如果 SELECT 查询的结果发生更改或可能发生更改，则数据库会使缓存的查询结果无效（丢弃）。在 ClickHouse 中，更改数据的操作包括在表中插入&#x2F;更新&#x2F;删除或折叠合并。事务一致性缓存特别适合 OLTP 数据库，例如MySQL（在v8.0之后删除了查询缓存）和 Oracle。</p>
+<p>在事务不一致缓存中，所有缓存条目都被分配了一个有效期，之后它们就会过期，并且基础数据在此期间仅发生很小的变化，那么查询结果中的轻微不准确是可以接受的，这种方法总体上更适合 OLAP 数据库。在一些应用场景中数据的变化假如很慢，数据库就只需要计算一次报告（由第一个 SELECT 查询表示）。可以直接从查询缓存提供进一步的查询。</p>
+<blockquote>
+<p>事务上不一致的缓存通常是由与数据库交互的客户端工具或代理包提供的</p>
+</blockquote>
+<h1 id="二、查询缓存实操"><a href="#二、查询缓存实操" class="headerlink" title="二、查询缓存实操"></a>二、查询缓存实操</h1><h2 id="2-1-前期准备"><a href="#2-1-前期准备" class="headerlink" title="2.1 前期准备"></a>2.1 前期准备</h2><p>这里使用 clickhouse 官方提供的 Anonymized Web Analytics Data，<a target="_blank" rel="noopener" href="https://datasets.clickhouse.com/hits/tsv/hits_100m_obfuscated_v1.tsv.xz">数据集下载</a></p>
+<p>准备数据表</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">CREATE</span> <span class="hljs-keyword">TABLE</span> hits_100m_obfuscated<br>(<br>    WatchID               UInt64,<br>    JavaEnable            UInt8,<br>    Title                 String,<br>    GoodEvent             Int16,<br>    EventTime             DateTime,<br>    EventDate             <span class="hljs-type">Date</span>,<br>    CounterID             UInt32,<br>    ClientIP              UInt32,<br>    RegionID              UInt32,<br>    UserID                UInt64,<br>    CounterClass          Int8,<br>    OS                    UInt8,<br>    UserAgent             UInt8,<br>    URL                   String,<br>    Referer               String,<br>    Refresh               UInt8,<br>    RefererCategoryID     UInt16,<br>    RefererRegionID       UInt32,<br>    URLCategoryID         UInt16,<br>    URLRegionID           UInt32,<br>    ResolutionWidth       UInt16,<br>    ResolutionHeight      UInt16,<br>    ResolutionDepth       UInt8,<br>    FlashMajor            UInt8,<br>    FlashMinor            UInt8,<br>    FlashMinor2           String,<br>    NetMajor              UInt8,<br>    NetMinor              UInt8,<br>    UserAgentMajor        UInt16,<br>    UserAgentMinor        FixedString(<span class="hljs-number">2</span>),<br>    CookieEnable          UInt8,<br>    JavascriptEnable      UInt8,<br>    IsMobile              UInt8,<br>    MobilePhone           UInt8,<br>    MobilePhoneModel      String,<br>    Params                String,<br>    IPNetworkID           UInt32,<br>    TraficSourceID        Int8,<br>    SearchEngineID        UInt16,<br>    SearchPhrase          String,<br>    AdvEngineID           UInt8,<br>    IsArtifical           UInt8,<br>    WindowClientWidth     UInt16,<br>    WindowClientHeight    UInt16,<br>    ClientTimeZone        Int16,<br>    ClientEventTime       DateTime,<br>    SilverlightVersion1   UInt8,<br>    SilverlightVersion2   UInt8,<br>    SilverlightVersion3   UInt32,<br>    SilverlightVersion4   UInt16,<br>    PageCharset           String,<br>    CodeVersion           UInt32,<br>    IsLink                UInt8,<br>    IsDownload            UInt8,<br>    IsNotBounce           UInt8,<br>    FUniqID               UInt64,<br>    OriginalURL           String,<br>    HID                   UInt32,<br>    IsOldCounter          UInt8,<br>    IsEvent               UInt8,<br>    IsParameter           UInt8,<br>    DontCountHits         UInt8,<br>    WithHash              UInt8,<br>    HitColor              FixedString(<span class="hljs-number">1</span>),<br>    LocalEventTime        DateTime,<br>    Age                   UInt8,<br>    Sex                   UInt8,<br>    Income                UInt8,<br>    Interests             UInt16,<br>    Robotness             UInt8,<br>    RemoteIP              UInt32,<br>    WindowName            Int32,<br>    OpenerName            Int32,<br>    HistoryLength         Int16,<br>    BrowserLanguage       FixedString(<span class="hljs-number">2</span>),<br>    BrowserCountry        FixedString(<span class="hljs-number">2</span>),<br>    SocialNetwork         String,<br>    SocialAction          String,<br>    HTTPError             UInt16,<br>    SendTiming            UInt32,<br>    DNSTiming             UInt32,<br>    ConnectTiming         UInt32,<br>    ResponseStartTiming   UInt32,<br>    ResponseEndTiming     UInt32,<br>    FetchTiming           UInt32,<br>    SocialSourceNetworkID UInt8,<br>    SocialSourcePage      String,<br>    ParamPrice            Int64,<br>    ParamOrderID          String,<br>    ParamCurrency         FixedString(<span class="hljs-number">3</span>),<br>    ParamCurrencyID       UInt16,<br>    OpenstatServiceName   String,<br>    OpenstatCampaignID    String,<br>    OpenstatAdID          String,<br>    OpenstatSourceID      String,<br>    UTMSource             String,<br>    UTMMedium             String,<br>    UTMCampaign           String,<br>    UTMContent            String,<br>    UTMTerm               String,<br>    FromTag               String,<br>    HasGCLID              UInt8,<br>    RefererHash           UInt64,<br>    URLHash               UInt64,<br>    CLID                  UInt32<br>)<br>    ENGINE <span class="hljs-operator">=</span> MergeTree()<br>        <span class="hljs-keyword">PARTITION</span> <span class="hljs-keyword">BY</span> toYYYYMM(EventDate)<br>        <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> (CounterID, EventDate, intHash32(UserID))<br>        SAMPLE <span class="hljs-keyword">BY</span> intHash32(UserID) SETTINGS index_granularity <span class="hljs-operator">=</span> <span class="hljs-number">8192</span>;<br></code></pre></td></tr></table></figure>
+
+<p>导入数据建议使用 clickhouse-client 来操作，下面基于 centos 或 rpm 安装客户端</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs shell">yum install -y yum-utils<br>yum-config-manager --add-repo https://packages.clickhouse.com/rpm/clickhouse.repo<br>yum install -y clickhouse-client<br></code></pre></td></tr></table></figure>
+
+<p>导入数据</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta prompt_"># </span><span class="language-bash">解压数据文件</span><br>xz -dk hits_100m_obfuscated_v1.tsv.xz<br><span class="hljs-meta prompt_"># </span><span class="language-bash">导入数据</span><br>cat hits_100m_obfuscated_v1.tsv | clickhouse-client -h 192.168.0.190 -u admin --password admin --query &quot;insert into hits_100m_obfuscated FORMAT TSV&quot; --max_insert_block_size=100000<br></code></pre></td></tr></table></figure>
+
+<p>查看数据量</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-built_in">count</span>() <span class="hljs-keyword">from</span> hits_100m_obfuscated;<br><br>Query id: <span class="hljs-number">9152e4</span>a1<span class="hljs-operator">-</span>fea1<span class="hljs-number">-4869</span><span class="hljs-number">-9857</span><span class="hljs-number">-656</span>fc0d4d68a<br><br>┌───<span class="hljs-built_in">count</span>()─┐<br>│ <span class="hljs-number">100000000</span> │<br>└───────────┘<br><br><span class="hljs-number">1</span> <span class="hljs-type">row</span> <span class="hljs-keyword">in</span> set. Elapsed: <span class="hljs-number">0.007</span> sec.<br></code></pre></td></tr></table></figure>
+
+<h2 id="2-2-查询缓存"><a href="#2-2-查询缓存" class="headerlink" title="2.2 查询缓存"></a>2.2 查询缓存</h2><p>假象一个需求：根据操作系统、浏览器和引用页面（Referer），计算总访问量和访问者数量，sql 极其执行结果如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> OS                                                  <span class="hljs-keyword">AS</span> OperatingSystem,<br>       UserAgent                                           <span class="hljs-keyword">AS</span> Browser,<br>       Referer                                             <span class="hljs-keyword">AS</span> ReferringPage,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-operator">*</span>)                                            <span class="hljs-keyword">AS</span> TotalVisits,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-keyword">DISTINCT</span> UserID)                              <span class="hljs-keyword">AS</span> UniqueVisitors<br><span class="hljs-keyword">FROM</span> hits_100m_obfuscated<br><span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> OperatingSystem, Browser, ReferringPage<br><span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> UniqueVisitors <span class="hljs-keyword">DESC</span><br>LIMIT <span class="hljs-number">10</span>;<br><br>Query id: <span class="hljs-number">458</span>deafe<span class="hljs-number">-25</span>fb<span class="hljs-number">-4695</span><span class="hljs-operator">-</span>bbbf<span class="hljs-number">-87</span>bd14e0b7ff<br><br>┌─OperatingSystem─┬─Browser─┬─ReferringPage───────┬─TotalVisits─┬─UniqueVisitors─┐<br>│              <span class="hljs-number">44</span> │       <span class="hljs-number">5</span> │                     │     <span class="hljs-number">2724345</span> │        <span class="hljs-number">1261517</span> │<br>│              <span class="hljs-number">44</span> │       <span class="hljs-number">7</span> │                     │     <span class="hljs-number">2236143</span> │         <span class="hljs-number">798198</span> │<br>│              <span class="hljs-number">44</span> │       <span class="hljs-number">2</span> │                     │     <span class="hljs-number">1713149</span> │         <span class="hljs-number">633544</span> │<br>│              <span class="hljs-number">44</span> │       <span class="hljs-number">3</span> │                     │     <span class="hljs-number">1815864</span> │         <span class="hljs-number">625035</span> │<br>│               <span class="hljs-number">2</span> │       <span class="hljs-number">5</span> │                     │     <span class="hljs-number">1075898</span> │         <span class="hljs-number">515312</span> │<br>│               <span class="hljs-number">2</span> │       <span class="hljs-number">3</span> │                     │     <span class="hljs-number">1378892</span> │         <span class="hljs-number">504849</span> │<br>│             <span class="hljs-number">159</span> │      <span class="hljs-number">32</span> │                     │      <span class="hljs-number">924871</span> │         <span class="hljs-number">432929</span> │<br>│               <span class="hljs-number">2</span> │       <span class="hljs-number">2</span> │                     │     <span class="hljs-number">1064491</span> │         <span class="hljs-number">407627</span> │<br>│               <span class="hljs-number">2</span> │       <span class="hljs-number">7</span> │                     │      <span class="hljs-number">914442</span> │         <span class="hljs-number">338232</span> │<br>│              <span class="hljs-number">44</span> │       <span class="hljs-number">5</span> │ http:<span class="hljs-operator">/</span><span class="hljs-operator">/</span>новострашная │      <span class="hljs-number">464194</span> │         <span class="hljs-number">316512</span> │<br>└─────────────────┴─────────┴─────────────────────┴─────────────┴────────────────┘<br><br><span class="hljs-number">10</span> <span class="hljs-keyword">rows</span> <span class="hljs-keyword">in</span> set. Elapsed: <span class="hljs-number">6.145</span> sec. Processed <span class="hljs-number">100.00</span> million <span class="hljs-keyword">rows</span>, <span class="hljs-number">8.56</span> GB (<span class="hljs-number">16.27</span> million <span class="hljs-keyword">rows</span><span class="hljs-operator">/</span>s., <span class="hljs-number">1.39</span> GB<span class="hljs-operator">/</span>s.)<br></code></pre></td></tr></table></figure>
+
+<p>平均执行时长 6 秒。</p>
+<p>作为实验性功能查询缓存默认关闭，通过下面方式开启</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">set</span> allow_experimental_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>;<br></code></pre></td></tr></table></figure>
+
+<p>同时在查询语句中显式指定启用缓存</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> OS                                                  <span class="hljs-keyword">AS</span> OperatingSystem,<br>       UserAgent                                           <span class="hljs-keyword">AS</span> Browser,<br>       Referer                                             <span class="hljs-keyword">AS</span> ReferringPage,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-operator">*</span>)                                            <span class="hljs-keyword">AS</span> TotalVisits,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-keyword">DISTINCT</span> UserID)                              <span class="hljs-keyword">AS</span> UniqueVisitors<br><span class="hljs-keyword">FROM</span> hits_100m_obfuscated<br><span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> OperatingSystem, Browser, ReferringPage<br><span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> UniqueVisitors <span class="hljs-keyword">DESC</span><br>LIMIT <span class="hljs-number">10</span><br>SETTINGS use_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>;<br><br>Query id: <span class="hljs-number">93098</span>a52<span class="hljs-operator">-</span>adcb<span class="hljs-number">-421</span>f<span class="hljs-operator">-</span>bc68<span class="hljs-operator">-</span>acbfd5b1af8b<br><br>┌─OperatingSystem─┬─Browser─┬─ReferringPage───────┬─TotalVisits─┬─UniqueVisitors─┐<br>│              <span class="hljs-number">44</span> │       <span class="hljs-number">5</span> │                     │     <span class="hljs-number">2724345</span> │        <span class="hljs-number">1261517</span> │<br>│              <span class="hljs-number">44</span> │       <span class="hljs-number">7</span> │                     │     <span class="hljs-number">2236143</span> │         <span class="hljs-number">798198</span> │<br>│              <span class="hljs-number">44</span> │       <span class="hljs-number">2</span> │                     │     <span class="hljs-number">1713149</span> │         <span class="hljs-number">633544</span> │<br>│              <span class="hljs-number">44</span> │       <span class="hljs-number">3</span> │                     │     <span class="hljs-number">1815864</span> │         <span class="hljs-number">625035</span> │<br>│               <span class="hljs-number">2</span> │       <span class="hljs-number">5</span> │                     │     <span class="hljs-number">1075898</span> │         <span class="hljs-number">515312</span> │<br>│               <span class="hljs-number">2</span> │       <span class="hljs-number">3</span> │                     │     <span class="hljs-number">1378892</span> │         <span class="hljs-number">504849</span> │<br>│             <span class="hljs-number">159</span> │      <span class="hljs-number">32</span> │                     │      <span class="hljs-number">924871</span> │         <span class="hljs-number">432929</span> │<br>│               <span class="hljs-number">2</span> │       <span class="hljs-number">2</span> │                     │     <span class="hljs-number">1064491</span> │         <span class="hljs-number">407627</span> │<br>│               <span class="hljs-number">2</span> │       <span class="hljs-number">7</span> │                     │      <span class="hljs-number">914442</span> │         <span class="hljs-number">338232</span> │<br>│              <span class="hljs-number">44</span> │       <span class="hljs-number">5</span> │ http:<span class="hljs-operator">/</span><span class="hljs-operator">/</span>новострашная │      <span class="hljs-number">464194</span> │         <span class="hljs-number">316512</span> │<br>└─────────────────┴─────────┴─────────────────────┴─────────────┴────────────────┘<br><br><span class="hljs-number">10</span> <span class="hljs-keyword">rows</span> <span class="hljs-keyword">in</span> set. Elapsed: <span class="hljs-number">0.003</span> sec.<br></code></pre></td></tr></table></figure>
+
+<p>上述结果是第二次查询，发现几乎不消耗时间，同时打印查询日志</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> query_duration_ms, read_rows, read_bytes, memory_usage<br><span class="hljs-keyword">from</span> system.query_log<br><span class="hljs-keyword">where</span> query_id <span class="hljs-keyword">in</span> (<span class="hljs-string">&#x27;93098a52-adcb-421f-bc68-acbfd5b1af8b&#x27;</span>, <span class="hljs-string">&#x27;458deafe-25fb-4695-bbbf-87bd14e0b7ff&#x27;</span>)<br>  <span class="hljs-keyword">and</span> type <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;QueryFinish&#x27;</span>;<br>  <br>Query id: b224a866<span class="hljs-number">-6</span>eed<span class="hljs-number">-42</span>a5<span class="hljs-operator">-</span>b81f<span class="hljs-operator">-</span>d186568e2570<br><br>┌─query_duration_ms─┬─read_rows─┬─read_bytes─┬─memory_usage─┐<br>│              <span class="hljs-number">6125</span> │ <span class="hljs-number">100000000</span> │ <span class="hljs-number">8562787759</span> │  <span class="hljs-number">14943181799</span> │<br>│                 <span class="hljs-number">2</span> │        <span class="hljs-number">10</span> │        <span class="hljs-number">301</span> │         <span class="hljs-number">9912</span> │<br>└───────────────────┴───────────┴────────────┴──────────────┘<br><br><span class="hljs-number">2</span> <span class="hljs-keyword">rows</span> <span class="hljs-keyword">in</span> set. Elapsed: <span class="hljs-number">0.049</span> sec. Processed <span class="hljs-number">1.97</span> thousand <span class="hljs-keyword">rows</span>, <span class="hljs-number">153.00</span> KB (<span class="hljs-number">40.50</span> thousand <span class="hljs-keyword">rows</span><span class="hljs-operator">/</span>s., <span class="hljs-number">3.15</span> MB<span class="hljs-operator">/</span>s.)<br></code></pre></td></tr></table></figure>
+
+<p>可以看出查询缓存对用户体验的提升是极高的</p>
+<blockquote>
+<p>虽然可以在配置文件中全局开启查询缓存，但是这样所有的 SELECT 查询（包括对系统表的监视或调试查询）都可能会返回缓存，所以还是针对特定查询语句提供缓存功能</p>
+</blockquote>
+<h1 id="三、进阶"><a href="#三、进阶" class="headerlink" title="三、进阶"></a>三、进阶</h1><h2 id="3-1-缓存配置"><a href="#3-1-缓存配置" class="headerlink" title="3.1 缓存配置"></a>3.1 缓存配置</h2><p>如何确定查询是否命中缓存？语法如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> query_id,<br>       ProfileEvents[<span class="hljs-string">&#x27;QueryCacheHits&#x27;</span>]   <span class="hljs-keyword">AS</span> query_cache,<br>       query_duration_ms <span class="hljs-operator">/</span> <span class="hljs-number">1000</span>          <span class="hljs-keyword">AS</span> query_duration,<br>       formatReadableSize(memory_usage)  <span class="hljs-keyword">AS</span> memory_usage,<br>       formatReadableQuantity(read_rows) <span class="hljs-keyword">AS</span> read_rows,<br>       formatReadableSize(read_bytes)    <span class="hljs-keyword">AS</span> read_data<br><span class="hljs-keyword">from</span> system.query_log<br><span class="hljs-keyword">where</span> type <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;QueryFinish&#x27;</span><br>  <span class="hljs-keyword">and</span> query_id <span class="hljs-keyword">in</span> (<span class="hljs-string">&#x27;93098a52-adcb-421f-bc68-acbfd5b1af8b&#x27;</span>, <span class="hljs-string">&#x27;458deafe-25fb-4695-bbbf-87bd14e0b7ff&#x27;</span>);<br>  <br>Query id: <span class="hljs-number">04744</span>ba4<span class="hljs-operator">-</span>d3cb<span class="hljs-number">-4</span>f28<span class="hljs-number">-84</span>fc<span class="hljs-number">-81</span>a2e7598789<br><br>┌─query_id─────────────────────────────┬─query_cache─┬─query_duration─┬─memory_usage─┬─read_rows──────┬─read_data─┐<br>│ <span class="hljs-number">458</span>deafe<span class="hljs-number">-25</span>fb<span class="hljs-number">-4695</span><span class="hljs-operator">-</span>bbbf<span class="hljs-number">-87</span>bd14e0b7ff │           <span class="hljs-number">0</span> │          <span class="hljs-number">6.125</span> │ <span class="hljs-number">13.92</span> GiB    │ <span class="hljs-number">100.00</span> million │ <span class="hljs-number">7.97</span> GiB  │<br>│ <span class="hljs-number">93098</span>a52<span class="hljs-operator">-</span>adcb<span class="hljs-number">-421</span>f<span class="hljs-operator">-</span>bc68<span class="hljs-operator">-</span>acbfd5b1af8b │           <span class="hljs-number">1</span> │          <span class="hljs-number">0.002</span> │ <span class="hljs-number">9.68</span> KiB     │ <span class="hljs-number">10.00</span>          │ <span class="hljs-number">301.00</span> B  │<br>└──────────────────────────────────────┴─────────────┴────────────────┴──────────────┴────────────────┴───────────┘<br><br><span class="hljs-number">2</span> <span class="hljs-keyword">rows</span> <span class="hljs-keyword">in</span> set. Elapsed: <span class="hljs-number">0.024</span> sec. Processed <span class="hljs-number">2.00</span> thousand <span class="hljs-keyword">rows</span>, <span class="hljs-number">364.80</span> KB (<span class="hljs-number">83.00</span> thousand <span class="hljs-keyword">rows</span><span class="hljs-operator">/</span>s., <span class="hljs-number">15.17</span> MB<span class="hljs-operator">/</span>s.)<br></code></pre></td></tr></table></figure>
+
+<p>如果想要更详细的了解系统中存在哪些缓存，可以查询 system.query_cache 表(结果展示太长，直接使用工具查询后截图)</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-08-01/image-20230801091005875.png" alt="image-20230801091005875" style="zoom:50%;" />
+
+<p>其中</p>
+<ol>
+<li>query：缓存的查询语句</li>
+<li>result_size：缓存数据的大小，单位 byte</li>
+<li>stale：缓存是否可用，0 表示可用，否则为不可用，需要重新执行缓存 query 将新的结果存储到缓存中</li>
+<li>shard：缓存所存储的分片节点</li>
+<li>compressed：是否被压缩，1 表示压缩，否则缓存没有被压缩</li>
+<li>expires_at：缓存过期时间</li>
+<li>key_hash：缓存的唯一标识</li>
+</ol>
+<blockquote>
+<p>key_hash 主要被用来标识哪个缓存，在 clickhouse 中查询缓存会以 hash 表的形式存储在内存中</p>
+</blockquote>
+<p>下面来介绍一下缓存的高级用法及其配置</p>
+<h3 id="3-1-1-更精细的缓存控制"><a href="#3-1-1-更精细的缓存控制" class="headerlink" title="3.1.1 更精细的缓存控制"></a>3.1.1 更精细的缓存控制</h3><p><code>use_query_cache</code> 用户开启查询缓存，但如果我们需要更精细的控制查询缓存则需要额外的配置，例如：我只需要从缓存中读取数据而不想将新的查询结果写入缓存中。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> OS                     <span class="hljs-keyword">AS</span> OperatingSystem,<br>       UserAgent              <span class="hljs-keyword">AS</span> Browser,<br>       Referer                <span class="hljs-keyword">AS</span> ReferringPage,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-operator">*</span>)               <span class="hljs-keyword">AS</span> TotalVisits,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-keyword">DISTINCT</span> UserID) <span class="hljs-keyword">AS</span> UniqueVisitors<br><span class="hljs-keyword">FROM</span> hits_100m_obfuscated<br><span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> OperatingSystem, Browser, ReferringPage<br><span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> UniqueVisitors <span class="hljs-keyword">DESC</span><br>LIMIT <span class="hljs-number">10</span><br>SETTINGS<br>use_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>,<br>enable_writes_to_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">false</span>,<br>enable_reads_from_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>;<br></code></pre></td></tr></table></figure>
+
+<p><code>enable_writes_to_query_cache</code>: 是否将查询缓存写入缓存中，禁止时所有的缓存都不会被写入。即：缓存如果存在直接获取，缓存失效后改查询不在缓存</p>
+<p><code>enable_reads_from_query_cache</code>: 是否从缓存中读取数据，禁止时及时缓存命中也不会获取缓存数据而是直接查询原始数据</p>
+<p>该参数可以精细控制缓存，让用户可以精准把控业务查询是否要走缓存，因为缓存在带来查询效率提升的同时，也带来了查询不一致的情况需要在生产中结合实际场景进行合理配置</p>
+<blockquote>
+<p>上述的两个配置需要在<code>use_query_cache</code>开启的情况下才会起作用</p>
+</blockquote>
+<h3 id="3-1-2-缓存时间控制"><a href="#3-1-2-缓存时间控制" class="headerlink" title="3.1.2 缓存时间控制"></a>3.1.2 缓存时间控制</h3><p>从 system.query_cache 表的 expires_at 字段可以获知缓存的过期时间，默认为 1min，该配置允许用户根据实际业务需求自己配置</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> OS                     <span class="hljs-keyword">AS</span> OperatingSystem,<br>       UserAgent              <span class="hljs-keyword">AS</span> Browser,<br>       Referer                <span class="hljs-keyword">AS</span> ReferringPage,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-operator">*</span>)               <span class="hljs-keyword">AS</span> TotalVisits,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-keyword">DISTINCT</span> UserID) <span class="hljs-keyword">AS</span> UniqueVisitors<br><span class="hljs-keyword">FROM</span> hits_100m_obfuscated<br><span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> OperatingSystem, Browser, ReferringPage<br><span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> UniqueVisitors <span class="hljs-keyword">DESC</span><br>LIMIT <span class="hljs-number">10</span><br>SETTINGS<br>use_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>,<br>query_cache_ttl <span class="hljs-operator">=</span> <span class="hljs-number">30</span>;<br></code></pre></td></tr></table></figure>
+
+<p><code>query_cache_ttl</code>: 缓存的过期时间，单位：秒</p>
+<p>该配置交给各位看官自己去验证</p>
+<h3 id="3-1-3-缓存大小控制"><a href="#3-1-3-缓存大小控制" class="headerlink" title="3.1.3 缓存大小控制"></a>3.1.3 缓存大小控制</h3><p>缓存虽好，但不能过度使用。如果不加以限制服务器 OOM 随时可能发生，例如某个用户在查询明细表时开启了缓存那么将是灾难级的。好在 clickhouse 提供了缓存大小的控制。</p>
+<p>从粗粒度层面可以控制当前节点的缓存大小和个数，在<code>config.xml</code>中</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">query_cache</span>&gt;</span><br>    <span class="hljs-comment">&lt;!-- 查询缓存总大小，单位：byte  --&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">size</span>&gt;</span>1073741824<span class="hljs-tag">&lt;/<span class="hljs-name">size</span>&gt;</span><br>    <span class="hljs-comment">&lt;!-- 可以缓存的查询条数  --&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">max_entries</span>&gt;</span>1024<span class="hljs-tag">&lt;/<span class="hljs-name">max_entries</span>&gt;</span><br>    <span class="hljs-comment">&lt;!-- 允许缓存的单个查询最大容量 单位：byte  --&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">max_entry_size</span>&gt;</span>1048576<span class="hljs-tag">&lt;/<span class="hljs-name">max_entry_size</span>&gt;</span><br>    <span class="hljs-comment">&lt;!-- 许缓存的单个查询最大行数  --&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">max_entry_records</span>&gt;</span>30000000<span class="hljs-tag">&lt;/<span class="hljs-name">max_entry_records</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">query_cache</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<ol>
+<li>size：限制节点可以缓存的总大小，上面配置了 1G，如果超过阈值会删除所有过期的缓存，此时如果没有足够空间则不会插入新的条目</li>
+<li>max_entries：限制节点可以缓存的总条数，上面配置了 1024 条，如果超过阈值会删除所有过期的缓存，此时如果没有足够空间则不会插入新的条目</li>
+<li>max_entry_size：限制单个查询可以缓存的容留上限，上面配置了 1M，如果超过这个阈值该查询不会被缓存</li>
+<li>max_entry_records：限制单个查询可以缓存的行数上线，上面配置了 3000w，如果超过这个阈值该查询不会被缓存</li>
+</ol>
+<p>从用户细粒度控制可以缓存的大小和个数，在用户独立的配置文件或用户配置域内</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">profiles</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">default</span>&gt;</span><br>        <span class="hljs-comment">&lt;!-- default 用户可以缓存的最大空间，单位字节 --&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">query_cache_max_size_in_bytes</span>&gt;</span>10000<span class="hljs-tag">&lt;/<span class="hljs-name">query_cache_max_size_in_bytes</span>&gt;</span><br>        <span class="hljs-comment">&lt;!-- default 用户可以缓存的查询条数 --&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">query_cache_max_entries</span>&gt;</span>100<span class="hljs-tag">&lt;/<span class="hljs-name">query_cache_max_entries</span>&gt;</span><br>        <span class="hljs-comment">&lt;!-- 设置配置只读，不允许修改 --&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">constraints</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">query_cache_max_size_in_bytes</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">readonly</span>/&gt;</span><br>            <span class="hljs-tag">&lt;/<span class="hljs-name">query_cache_max_size_in_bytes</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">query_cache_max_entries</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">readonly</span>/&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">query_cache_max_entries</span>&gt;</span><br>        <span class="hljs-tag">&lt;/<span class="hljs-name">constraints</span>&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">default</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">profiles</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>如果用户需要尽可能多的缓存大数据集的话可以开启缓存压缩，当然默认就是开启的。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> ...<br>SETTINGS use_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>,query_cache_compress_entries <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>;<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>缓存压缩可以大幅降低内存消耗，但查询缓存的写入和读取效率将会被降低</p>
+</blockquote>
+<h3 id="3-1-4-缓存行为控制"><a href="#3-1-4-缓存行为控制" class="headerlink" title="3.1.4 缓存行为控制"></a>3.1.4 缓存行为控制</h3><p>为了让缓存可以被应用在频繁且耗时的查询中，可以控制查询次数和查询耗时来避免一些本身相对较快的查询来消耗缓存空间</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> OS                     <span class="hljs-keyword">AS</span> OperatingSystem,<br>       UserAgent              <span class="hljs-keyword">AS</span> Browser,<br>       Referer                <span class="hljs-keyword">AS</span> ReferringPage,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-operator">*</span>)               <span class="hljs-keyword">AS</span> TotalVisits,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-keyword">DISTINCT</span> UserID) <span class="hljs-keyword">AS</span> UniqueVisitors<br><span class="hljs-keyword">FROM</span> hits_100m_obfuscated<br><span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> OperatingSystem, Browser, ReferringPage<br><span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> UniqueVisitors <span class="hljs-keyword">DESC</span><br>LIMIT <span class="hljs-number">10</span><br>SETTINGS<br>use_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>,<br>query_cache_min_query_duration <span class="hljs-operator">=</span> <span class="hljs-number">5000</span>,<br>query_cache_min_query_runs <span class="hljs-operator">=</span> <span class="hljs-number">2</span>;<br></code></pre></td></tr></table></figure>
+
+<p><code>use_query_cache_min_query_duration</code>: 查询至少耗时 5000 毫秒才会被缓存</p>
+<p><code>use_query_cache_min_query_runs</code>: 查询至少运行 2 次以上才会被缓存</p>
+<p>如果都配置则需要同时满足才会被缓存</p>
+<blockquote>
+<p>上述配置主要是为了约束将缓存空间用在真正需要被缓存的 sql 上</p>
+</blockquote>
+<h3 id="3-1-5-事务不一致的缓存"><a href="#3-1-5-事务不一致的缓存" class="headerlink" title="3.1.5 事务不一致的缓存"></a>3.1.5 事务不一致的缓存</h3><p>在使用一些带有随机语义函数的查询时 clickhouse 默认是不缓存的，例如：now() 和 rand() 函数，例如：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> OS                     <span class="hljs-keyword">AS</span> OperatingSystem,<br>       UserAgent              <span class="hljs-keyword">AS</span> Browser,<br>       Referer                <span class="hljs-keyword">AS</span> ReferringPage,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-operator">*</span>)               <span class="hljs-keyword">AS</span> TotalVisits,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-keyword">DISTINCT</span> UserID) <span class="hljs-keyword">AS</span> UniqueVisitors<br><span class="hljs-keyword">FROM</span> hits_100m_obfuscated<br><span class="hljs-keyword">where</span> EventDate <span class="hljs-operator">&gt;=</span> toDateTime(<span class="hljs-string">&#x27;2013-07-10 00:00:00&#x27;</span>)<br>  <span class="hljs-keyword">and</span> EventDate <span class="hljs-operator">&lt;=</span> now()<br><span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> OperatingSystem, Browser, ReferringPage<br><span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> UniqueVisitors <span class="hljs-keyword">DESC</span><br>LIMIT <span class="hljs-number">10</span><br>SETTINGS<br>use_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>;<br></code></pre></td></tr></table></figure>
+
+<p>即使开启了<code>use_query_cache</code>也不会被缓存，因为查询中存在不确定函数 now()，clickhouse 并不知道原表的数据何时发生变化，这就会导致此类函数的查询存在数据不一致情况。当然如果业务场景允许，需要追求极致的查询体验，可以开启<code>query_cache_store_results_of_queries_with_nondeterministic_functions</code></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> OS                     <span class="hljs-keyword">AS</span> OperatingSystem,<br>       UserAgent              <span class="hljs-keyword">AS</span> Browser,<br>       Referer                <span class="hljs-keyword">AS</span> ReferringPage,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-operator">*</span>)               <span class="hljs-keyword">AS</span> TotalVisits,<br>       <span class="hljs-built_in">COUNT</span>(<span class="hljs-keyword">DISTINCT</span> UserID) <span class="hljs-keyword">AS</span> UniqueVisitors<br><span class="hljs-keyword">FROM</span> hits_100m_obfuscated<br><span class="hljs-keyword">where</span> EventDate <span class="hljs-operator">&gt;=</span> toDateTime(<span class="hljs-string">&#x27;2013-07-10 00:00:00&#x27;</span>)<br>  <span class="hljs-keyword">and</span> EventDate <span class="hljs-operator">&lt;=</span> now()<br><span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> OperatingSystem, Browser, ReferringPage<br><span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> UniqueVisitors <span class="hljs-keyword">DESC</span><br>LIMIT <span class="hljs-number">10</span><br>SETTINGS<br>use_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>,<br>query_cache_store_results_of_queries_with_nondeterministic_functions <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>;<br></code></pre></td></tr></table></figure>
+
+<p>此时查询 system.query_cache 就可以看到</p>
+<h3 id="3-1-6-缓存共享"><a href="#3-1-6-缓存共享" class="headerlink" title="3.1.6 缓存共享"></a>3.1.6 缓存共享</h3><p>clickhouse 默认不允许多个用户之间共享缓存，因为这个操作太过于危险。如果有必要通过<code>query_cache_share_between_users</code>开启</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> ...<br>SETTINGS use_query_cache <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>, query_cache_share_between_users <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>;<br></code></pre></td></tr></table></figure>
+
+<h3 id="3-1-7-删除缓存"><a href="#3-1-7-删除缓存" class="headerlink" title="3.1.7 删除缓存"></a>3.1.7 删除缓存</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">system</span> <span class="hljs-keyword">drop</span> query cache [<span class="hljs-keyword">on</span> cluster cluster_name];<br></code></pre></td></tr></table></figure>
+
+<p>此操作会删除该节点所有缓存（过期不过期都会被删除）</p>
+<h2 id="3-2-不足"><a href="#3-2-不足" class="headerlink" title="3.2 不足"></a>3.2 不足</h2><ol>
+<li>从目前来看，我并没有找到删除指定缓存的方式只能删除全部缓存，显然这个操作是被禁止的</li>
+<li>暂不支持缓存淘汰策略（如：LRU），当前的做法是当缓存达到上限自动删除所有过期缓存</li>
+<li>当前缓存被存储在内存的哈希表中并没有持久化，当服务器重启后缓存将会失效</li>
+</ol>
+<p>当然上述的不足在 clickhouse 的 roadmap 均有体现，相信在不久将来的新版本中查询缓存将越来越优秀</p>
+
+      </div>
+    </div>
+  </article>
+  <div class="post__foot">
+    
+      <div class="like-author">
+  <input type="checkbox" id="likeCode" />
+  <div class="author-face">
+    <img height="100px"
+         width="100px"
+         id="front-face"
+         alt="author face"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-10-31/IMG_4075.JPG" />
+    <img height="100px"
+         width="100px"
+         id="back-face"
+         alt="like code"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-08-10/QRcode_A%20%E2%80%94%20a1.jpg" />
+  </div>
+  <div class="like-text">请作者喝杯咖啡</div>
+  <label for="likeCode" class="like-btn">
+    <svg viewBox="0 0 1024 1024"
+         width="20px"
+         style="margin-right: 10px"
+         height="20px">
+      <path d="M466.88 908.96L113.824 563.296a270.08 270.08 0 0 1 0-387.392c108.8-106.56 284.896-106.56 393.696 0 1.504 1.472 2.976 2.944 4.448 4.48 1.472-1.536 2.944-3.008 4.448-4.48 108.8-106.56 284.896-106.56 393.696 0a269.952 269.952 0 0 1 34.016 347.072l-387.392 385.6a64 64 0 0 1-89.92 0.384z" p-id="13650" fill="#ee4242" />
+    </svg>
+    喜欢作者
+  </label>
+</div>
+
+    
+    <div class="post-nav">
+  
+    <a class="post-nav-item-left" href="/2023/08/09/clickhouse/delete/">
+      <div class="text-align">
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+        <span class="text-small">上一篇</span>
+      </div>
+      <div>clickhouse 删除操作</div>
+    </a>
+  
+  <div class="vhr"></div>
+  
+    <a class="post-nav-item-right" href="/2023/07/27/clickhouse/sql-downgrade/">
+      <div class="text-align">
+        <span class="text-small">下一篇</span>
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             transform="scale(-1,-1)"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+      </div>
+      clickhouse 分布式查询降级为本地查询
+    </a>
+  
+</div>
+
+    
+      <div class="related-post">
+  <div class="related__head">
+  <a href="/tags/clickhouse/" class="post-tag">#clickhouse</a>
+
+</div>
+  <div class="realated__body">
+    
+      <div class="null"><div class="null-item"><div class="null-title"><a href="/2023/08/09/clickhouse/delete/" title="clickhouse 删除操作" rel="bookmark">clickhouse 删除操作</a></div></div><div class="null-item"><div class="null-title"><a href="/2023/07/27/clickhouse/sql-downgrade/" title="clickhouse 分布式查询降级为本地查询" rel="bookmark">clickhouse 分布式查询降级为本地查询</a></div></div></div>
+    
+  </div>
+</div>
+
+    
+    <div id="gitalk-container"></div>
+  </div>
+
+    </div>
+    <div class="foot">
+      <div class="foot-inner">
+        <div class="foot__head">
+          
+            <div class="foot-line">
+              <div class="matts">探</div><div class="matts">索</div><div class="matts">未</div><div class="matts">知</div><div class="matts">激</div><div class="matts">发</div><div class="matts">灵</div><div class="matts">感</div>
+            </div>
+          
+            <div class="foot-line">
+              <div class="matts">自</div><div class="matts">由</div><div class="matts">创</div><div class="matts">造</div><div class="matts">跨</div><div class="matts">越</div><div class="matts">界</div><div class="matts">限</div>
+            </div>
+          
+        </div>
+        <div class="foot__body">
+          
+            <div class="foot-item">
+              <div class="foot-item__head">朋友</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/icon/icon-link.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://kpretty.tech">博主的主站</a>
+                  </div>
+                
+                <div class="text">
+                  <img alt="link" height="20px" width="20px" src="/images/icon/icon-link+.svg" />
+                  <a class="foot-link"
+                     href="mailto:wjunjobs@outlook.com?subject=%E7%94%B3%E8%AF%B7%20Hozen.site%20%E7%9A%84%E5%8F%8B%E9%93%BE%E4%BD%8D%E7%BD%AE">
+                  申请友链</a>
+                </div>
+              </div>
+            </div>
+          
+          
+            <div class="foot-item">
+              <div class="foot-item__head">账号</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/logo-github.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://github.com/kpretty">github</a>
+                  </div>
+                
+              </div>
+            </div>
+          
+          <div class="foot-item">
+            <div class="foot-item__head">联系</div>
+            <div class="foot-item__body">
+              <div class="text">
+                <img alt="link" height="20px" width="20px" src="/images/icon/icon-email.svg" />
+                <a class="foot-link" href="mailto:wjunjobs@outlook.com">wjunjobs@outlook.com</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="copyright">
+          <a href="https://uhope.fun">Youth Hope Fun</a> &nbsp;|&nbsp;由&nbsp;<a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>&nbsp;及&nbsp;
+          <svg width="20" height="20" viewBox="0 0 725 725">
+            <path fill-rule="evenodd" fill="rgb(221, 221, 221)" d="M145.870,236.632 L396.955,103.578 L431.292,419.44 L156.600,522.53 L145.870,236.632 Z" />
+            <path fill-rule="evenodd" fill="rgb(159, 159, 159)" d="M396.955,103.578 L564.345,234.486 L611.558,513.469 L431.292,419.44 L396.955,103.578 Z" />
+            <path fill-rule="evenodd" fill="rgb(0, 0, 0)" d="M431.292,419.44 L611.558,513.469 L358.327,595.18 L156.600,522.53 L431.292,419.44 Z" />
+          </svg>
+          <a target="_blank" rel="noopener" href="https://github.com/hooozen/hexo-theme-tranquility">致远</a>&nbsp;驱动
+        </div>
+      </div>
+    </div>
+    
+      <script src="https://unpkg.com/js-polyfills@0.1.43/es6.js"></script>
+      <script id="MathJax-script"
+              async
+              src="https://www.unpkg.com/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+    
+    
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+<script type="text/javascript">
+  const param = JSON.parse('{"enable":true,"owner":"kpretty","admin":["kpretty"],"repo":"blog-comment","clientID":"0ca314933bd70869d267","clientSecret":"1d9a7930f641b37c9900ae8105fab1275c4d84ba","distractionFreeMode":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":"zh-CN"}')
+  param.id = location.pathname
+  const gitalk = new Gitalk(param)
+  gitalk.render('gitalk-container')
+</script>
+
+
+  </body>
+</html>

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="utf8" />
+    <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+    <title>
+      
+        clickhouse 删除操作 | Youth Hope Fun
+      
+    </title>
+    <meta name="description" content="" />
+    <meta name="keywords" content="big data,olap,code" />
+    
+      <link rel="apple-touch-icon"
+            sizes="180x180"
+            href="/images/apple-touch-icon.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="32x32"
+            href="/images/favicon-32x32.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="16x16"
+            href="/images/favicon-16x16.png" />
+    
+    
+      <link rel="mask-icon"
+            href="/images/logo.svg"
+            color="" />
+    
+    
+    
+      
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/regular.ttf);
+        font-weight: regular;
+    }
+  </style>
+
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/bold.ttf);
+        font-weight: bold;
+    }
+  </style>
+
+
+    
+    <link rel="stylesheet"
+          type="text/css"
+          href='/css/layout.css' />
+    
+      <script>
+          var _hmt = _hmt || [];
+          (function() {
+              var hm = document.createElement("script");
+              hm.src = "https://hm.baidu.com/hm.js?eac8d81fcf4d967c1dd1edbcc2f81719";
+              var s = document.getElementsByTagName("script")[0];
+              s.parentNode.insertBefore(hm, s);
+          })();
+      </script>
+    
+    
+  <link rel="stylesheet" type="text/css" href="/css/post.css" />
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+
+  <meta name="generator" content="Hexo 6.3.0"></head>
+  <body>
+    <div class="head">
+      <div class="nav">
+        <a href='/' class="nav-logo">
+          <img alt="logo" height="60px" width="60px" src="/images/logo.svg" />
+        </a>
+        <input id="navBtn" type="checkbox" />
+        <div class="nav-menu">
+          
+            
+              <a class="nav-menu-item" href="/bigdata">大数据</a>
+            
+              <a class="nav-menu-item" href="/algorithm">算法</a>
+            
+              <a class="nav-menu-item" href="/other">其他</a>
+            
+          
+        </div>
+        <label class="nav-btn" for="navBtn"></label>
+      </div>
+    </div>
+    <div class="body">
+      
+  <article class="post-content">
+    <div class="post-inner">
+      <div class="post-content__head">
+        <div class="post-title">clickhouse 删除操作</div>
+        <div class="post-info">
+          
+  <a href="/tags/clickhouse/" class="post-tag">#clickhouse</a>
+
+
+          <span class="post-date">2023-08-09</span>
+        </div>
+      </div>
+      
+      <div class="post-content__body">
+        
+          <div class="post-gallery">
+            
+          </div>
+        
+        <p>OLAP 数据库设计的宗旨在于分析适合一次插入多次查询的业务场景，市面上成熟的 AP 数据库在更新和删除操作上支持的均不是很好，当然 clickhouse 也不例外。但是不友好不代表不支持，本文主要介绍在 clickhouse 中如何实现数据的删除，以及最新版本中 clickhouse 所做的一些技术突破</p>
+<span id="more"></span>
+
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-08-09/Click_House_Delete_Statement_6fd661d851.png" alt="Click_House_Delete_Statement_6fd661d851" style="zoom:50%;" />
+
+<h1 id="一、mutation"><a href="#一、mutation" class="headerlink" title="一、mutation"></a>一、mutation</h1><p>刚接触 clickhouse 的小伙伴或许对 mutation 就很熟悉了，mutation 查询可以看成 alter 语句的变种。虽然 mutation 能够最终实现修改和删除的需求，但不能完全用通常意义的 delete 和 update 来理解，我们需要清醒的认识到它的不同：</p>
+<ol>
+<li>mutation 是一个很重的操作，适合批量数据操作</li>
+<li>不支持事务、一旦操作立刻生效无法回滚</li>
+<li>mutation 为异步操作</li>
+</ol>
+<h2 id="1-1-实操"><a href="#1-1-实操" class="headerlink" title="1.1 实操"></a>1.1 实操</h2><p>创建一张表用于测试 mutation 操作</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> mutations_operate<br>(<br>    UserId     UInt64,<br>    Score      UInt64,<br>    CreateTime DateTime<br>) engine <span class="hljs-operator">=</span> MergeTree()<br>      <span class="hljs-keyword">partition</span> <span class="hljs-keyword">by</span> toYYYYMMDD(CreateTime)<br>      <span class="hljs-keyword">order</span> <span class="hljs-keyword">by</span> UserId;<br></code></pre></td></tr></table></figure>
+
+<p>接下来分别插入两批不同分区的数据</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> mutations_operate<br><span class="hljs-keyword">select</span> number,<br>       <span class="hljs-built_in">abs</span>(number <span class="hljs-operator">-</span> <span class="hljs-number">100</span>),<br>       <span class="hljs-string">&#x27;2023-08-08 00:00:00&#x27;</span><br><span class="hljs-keyword">from</span> system.numbers<br>limit <span class="hljs-number">1000000</span>;<br><br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> mutations_operate<br><span class="hljs-keyword">select</span> number,<br>       <span class="hljs-built_in">abs</span>(number <span class="hljs-operator">-</span> <span class="hljs-number">100</span>),<br>       <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span><br><span class="hljs-keyword">from</span> system.numbers<br>limit <span class="hljs-number">1000000</span>;<br></code></pre></td></tr></table></figure>
+
+<p>尝试删除 20230808 分区中 1000-10000 之间的所有数据，sql 如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">alter</span> <span class="hljs-keyword">table</span> mutations_operate <span class="hljs-keyword">delete</span> <span class="hljs-keyword">where</span> toYYYYMMDD(CreateTime) <span class="hljs-operator">=</span> <span class="hljs-number">20230808</span> <span class="hljs-keyword">and</span> UserId <span class="hljs-keyword">between</span> <span class="hljs-number">1000</span> <span class="hljs-keyword">and</span> <span class="hljs-number">10000</span>;<br></code></pre></td></tr></table></figure>
+
+<p>可以统计一下该分区的数据条数来确认是否成功删除，从体验来说目前的数据规模感受不到 mutation 的“重”，感觉像是瞬间完成的。</p>
+<p>当然我们也可以查看<code>system.mutations</code>表来监控 mutation 操作的进度</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-keyword">table</span>, mutation_id, `block_numbers.number` <span class="hljs-keyword">as</span> num, is_done<br><span class="hljs-keyword">from</span> system.mutations;<br><br>Query id: <span class="hljs-number">0878</span>a0f1<span class="hljs-operator">-</span>a5ff<span class="hljs-number">-474</span>c<span class="hljs-number">-8</span>f84<span class="hljs-number">-518</span>ce5dc5e1d<br><br>┌─<span class="hljs-keyword">table</span>─────────────┬─mutation_id────┬─num─┬─is_done─┐<br>│ mutations_operate │ mutation_3.txt │ [<span class="hljs-number">3</span>] │       <span class="hljs-number">1</span> │<br>└───────────────────┴────────────────┴─────┴─────────┘<br><br><span class="hljs-number">1</span> <span class="hljs-type">row</span> <span class="hljs-keyword">in</span> set. Elapsed: <span class="hljs-number">0.002</span> sec.<br></code></pre></td></tr></table></figure>
+
+<p>mutation_id 是一个日志文件，可以在表存储目录中查看，完整记录了本次操作的语句和时间，例如</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">format version: 1<br>create time: 2023-08-09 18:54:06<br>commands: DELETE WHERE (toYYYYMMDD(CreateTime) = 20230808) AND ((UserId &gt;= 1000) AND (UserId &lt;= 10000))<br></code></pre></td></tr></table></figure>
+
+<p>而其中的 3 以及<code>block_numbers.number</code>是 mutation 号，每执行一条 delete 或 update 语句都会对应一个唯一的编号</p>
+<p>id_done 表示本次 mutation 操作是否执行完成，1 表示已经完成</p>
+<h2 id="1-2-原理"><a href="#1-2-原理" class="headerlink" title="1.2 原理"></a>1.2 原理</h2><p>为了探寻 mutation 操作的原理和执行流程重置一下表数据（删除重建即可），在插入两批数据后查看磁盘目录</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs shell">» du -h<br>  0B	./detached<br>7.7M	./20230809_2_2_0<br>7.7M	./20230808_1_1_0<br> 15M	.<br></code></pre></td></tr></table></figure>
+
+<p>可以看到两个分区目录均是 7.7M</p>
+<p>尝试执行删除操作后，可以在日志中看到下面的查询信息</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">&lt;Debug&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): Key condition: unknown, (column 0 in [1000, +Inf)), (column 0 in (-Inf, 10000]), and, and<br>&lt;Debug&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): Key condition: unknown, (column 0 in [1000, +Inf)), (column 0 in (-Inf, 10000]), and, and<br>&lt;Debug&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): MinMax index condition: (toYYYYMMDD(column 0) in [20230808, 20230808]), unknown, unknown, and, and<br>&lt;Debug&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): MinMax index condition: (toYYYYMMDD(column 0) in [20230808, 20230808]), unknown, unknown, and, and<br>&lt;Trace&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): Running binary search on index range for part 20230808_1_1_0 (124 marks)<br>&lt;Trace&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): Found (LEFT) boundary mark: 0<br>&lt;Debug&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): Selected 0/1 parts by partition key, 0 parts by primary key, 0/0 marks by primary key, 0 marks to read from 0 ranges<br>&lt;Trace&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): Found (RIGHT) boundary mark: 2<br>&lt;Trace&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): Found continuous range in 13 steps<br>&lt;Debug&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): Selected 1/1 parts by partition key, 1 parts by primary key, 2/123 marks by primary key, 2 marks to read from 1 ranges<br>&lt;Trace&gt; delete_operate.mutations_operate (7f120927-b71e-4f85-a06c-21a94b7f89e3) (SelectExecutor): Spreading mark ranges among streams (default reading)<br>&lt;Trace&gt; MergeTreeInOrderSelectProcessor: Reading 1 ranges in order from part 20230808_1_1_0, approx. 16384 rows starting from 0<br>&lt;Trace&gt; Aggregator: Aggregation method: without_key<br>&lt;Trace&gt; AggregatingTransform: Aggregated. 0 to 1 rows (from 0.00 B) in 0.000570041 sec. (0.000 rows/sec., 0.00 B/sec.)<br>&lt;Trace&gt; Aggregator: Merging aggregated data<br>&lt;Trace&gt; MutateTask: Part 20230809_2_2_0 doesn&#x27;t change up to mutation version 3<br></code></pre></td></tr></table></figure>
+
+<p>首先，clickhouse 会使用我们执行的删除语句中附带的 where 条件在每个分区中执行 count 查询，为了判断哪些分区有需要被删除的数据，从日志可以看出<code>Reading 1 ranges in order from part 20230808_1_1_0, approx. 16384 rows starting from 0</code>以及<code>Part 20230809_2_2_0 doesn&#39;t change up to mutation version 3</code>。注意日志中所说 20230808 的范围是 0～16384 并不是实际删除的范围，而是索引的范围。我们知道 mergeTree 引擎默认的跳数索引的间隔是 8192 而我们删除的数据范围是 1000-10000，显然作为一个整周期自然是 0-16384(2x8192)</p>
+<p>当我们再次查看磁盘目录</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">» du -h<br>  0B	./detached<br>7.7M	./20230809_2_2_0<br>7.7M	./20230808_1_1_0<br>  0B	./20230809_2_2_0_3<br>7.6M	./20230808_1_1_0_3<br> 23M	.<br></code></pre></td></tr></table></figure>
+
+<p>总目录从 15M 变成了 23M，而两个分区也都各自生成了一个以 mutation version 为后缀的新分区</p>
+<p>因此接下来的逻辑如下：</p>
+<p>clickhouse 会创建一个 tmp_mut_ 为前缀、mutation version 为后缀的临时分区目录，例如这里的就是 tmp_mut_20230808_1_1_0_3</p>
+<p>对于需要删除的分区，会在 tmp_mut 目录中生成全新的 .bin 和 .mrk 文件</p>
+<p>对于无需删除的分区，clickhouse 会创建一个 tmp_clone_ 为前缀、mutation version 为后缀的临时分区目录并将原分区里面的数据以<strong>硬链接</strong>的方式拷贝过去，并修改目录名称为正确的格式</p>
+<p>下面是执行的日志情况</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">&lt;Debug&gt; delete_operate.mutations_operate (4351d317-2cd6-4328-85fe-49d5beeff5c3): Clone part /opt/homebrew/var/lib/clickhouse/store/435/4351d317-2cd6-4328-85fe-49d5beeff5c3/20230809_2_2_0/ to /opt/homebrew/var/lib/clickhouse/store/435/4351d317-2cd6-4328-85fe-49d5beeff5c3/tmp_clone_20230809_2_2_0_3<br>&lt;Trace&gt; delete_operate.mutations_operate (4351d317-2cd6-4328-85fe-49d5beeff5c3): Renaming temporary part tmp_clone_20230809_2_2_0_3 to 20230809_2_2_0_3 with tid (1, 1, 00000000-0000-0000-0000-000000000000).<br>&lt;Trace&gt; MergedBlockOutputStream: filled checksums 20230808_1_1_0_3 (state Temporary)<br>&lt;Trace&gt; delete_operate.mutations_operate (4351d317-2cd6-4328-85fe-49d5beeff5c3): Renaming temporary part tmp_mut_20230808_1_1_0_3 to 20230808_1_1_0_3 with tid (1, 1, 00000000-0000-0000-0000-000000000000)<br></code></pre></td></tr></table></figure>
+
+<p>从磁盘目录也可以佐证这一点，首先上面的 20230809_2_2_0_3 占用空间为 0B，当然这是 mac 独有的现实方式，在其它 linux 系统不一定是这么显示，进入各个分区查看一下</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs shell">wjun :: data/delete_operate/mutations_operate ‹stable› » ll 20230808_1_1_0_3<br>total 15632<br>-rw-r-----@ 1 wjun  admin    17863 Aug  9 19:36 CreateTime.bin<br>-rw-r-----@ 1 wjun  admin      369 Aug  9 19:36 CreateTime.cmrk2<br>-rw-r-----@ 1 wjun  admin  3968891 Aug  9 19:36 Score.bin<br>-rw-r-----@ 1 wjun  admin      409 Aug  9 19:36 Score.cmrk2<br>-rw-r-----@ 1 wjun  admin  3969011 Aug  9 19:36 UserId.bin<br>-rw-r-----@ 1 wjun  admin      409 Aug  9 19:36 UserId.cmrk2<br>-rw-r-----@ 1 wjun  admin      490 Aug  9 19:36 checksums.txt<br>-rw-r-----@ 1 wjun  admin       90 Aug  9 19:36 columns.txt<br>-rw-r-----@ 1 wjun  admin        6 Aug  9 19:36 count.txt<br>-rw-r-----@ 1 wjun  admin       10 Aug  9 19:36 default_compression_codec.txt<br>-rw-r-----@ 1 wjun  admin        1 Aug  9 19:36 metadata_version.txt<br>-rw-r-----@ 1 wjun  admin        8 Aug  9 19:36 minmax_CreateTime.idx<br>-rw-r-----@ 1 wjun  admin        4 Aug  9 19:36 partition.dat<br>-rw-r-----@ 1 wjun  admin      188 Aug  9 19:36 primary.cidx<br>wjun :: data/delete_operate/mutations_operate ‹stable› » ll 20230809_2_2_0_3<br>total 15768<br>-rw-r-----@ 2 wjun  admin    18042 Aug  9 19:35 CreateTime.bin<br>-rw-r-----@ 2 wjun  admin      375 Aug  9 19:35 CreateTime.cmrk2<br>-rw-r-----@ 2 wjun  admin  4004938 Aug  9 19:35 Score.bin<br>-rw-r-----@ 2 wjun  admin      415 Aug  9 19:35 Score.cmrk2<br>-rw-r-----@ 2 wjun  admin  4004915 Aug  9 19:35 UserId.bin<br>-rw-r-----@ 2 wjun  admin      415 Aug  9 19:35 UserId.cmrk2<br>-rw-r-----@ 2 wjun  admin      490 Aug  9 19:35 checksums.txt<br>-rw-r-----@ 2 wjun  admin       90 Aug  9 19:35 columns.txt<br>-rw-r-----@ 2 wjun  admin        7 Aug  9 19:35 count.txt<br>-rw-r-----@ 2 wjun  admin       10 Aug  9 19:35 default_compression_codec.txt<br>-rw-r-----@ 2 wjun  admin        8 Aug  9 19:35 minmax_CreateTime.idx<br>-rw-r-----@ 2 wjun  admin        4 Aug  9 19:35 partition.dat<br>-rw-r-----@ 2 wjun  admin      173 Aug  9 19:35 primary.cidx<br></code></pre></td></tr></table></figure>
+
+<p>20230809_2_2_0_3 分区 inode 被连接次数为 2 表示建立了硬链接。</p>
+<p>因此 mutation 的删除逻辑如下：</p>
+<ol>
+<li>每个分区执行附带删除操作的 where 条件的 count 查询，获取需要执行删除操作的分区</li>
+<li>对于需要执行删除操作的分区会创建一个临时目录并生成全新（删除需要删除的行）的文件，随后 rename 分区</li>
+<li>对于无需执行删除操作的分区会创建一个临时目录并以硬链接的方式拷贝文件，随后 rename 分区</li>
+<li>原分区在<code>system.parts</code>中会被置为 inactive 状态</li>
+<li>在下一次 merge 是删除原分区</li>
+</ol>
+<p>而对于更新操作基本逻辑一致，需要注意的是需要执行更新操作的分区会有如下两种情况：</p>
+<ol>
+<li>分区类型为 wide：只会重新生成受影响行的 bin 和 mrk 文件，不受影响的文件以硬链接的方式拷贝</li>
+<li>分区类型为 compact：因为所有列都是一个文件，因此会重新生成 bin 和 mrk 文件</li>
+</ol>
+<p>更新和删除操作流程不一致的原因是：删除影响全部列而更新只影响部分列</p>
+<blockquote>
+<p>mergeTree 表的分区类型分为 wide 和 compact 两种受<code>min_bytes_for_wide_part</code>和<code>min_rows_for_wide_part</code>参数影响。wide 类型的分区一个列一个文件，compact 类型的分区所有列公用一个文件，当分区数据的行数和字节较小时为 compact 类型，不管是查询所有字段或某个字段相对较快；当数据量很大时就会以列式存储来追求 AP 查询性能</p>
+</blockquote>
+<h2 id="1-3-不足"><a href="#1-3-不足" class="headerlink" title="1.3 不足"></a>1.3 不足</h2><p>当我们走一遍 mutation 时发现在删除任务完成后表 merge 前的这一段时间磁盘空间不减反增，这个就让用户很难接受了。因此就可能会出现因为磁盘空间不足想要删除数据，结果删除操作导致空间进一步不足的窘境。同时 mutation 会重写受影响的分区，这也是 mutation 操作重的原因所在。</p>
+<h1 id="二、mergeTree"><a href="#二、mergeTree" class="headerlink" title="二、mergeTree"></a>二、mergeTree</h1><p>对于 clickhouse 这类高性能分析型数据库而言，修改源文件是一件非常奢侈且代价昂贵的操作，相对于直接修改源文件，我们将修改和新增操作都转换为新增操作，即以增代删将是一个非常不错的选择。是不是和 Hbase 的思路十分接近。在 mergeTree 家族中有一个特殊的表引擎叫 CollapsingMergeTree，翻译过来叫折叠合并树引擎就是提供了这样的功能。它通过定义一个 sign 标记字段来记录数据行的状态。如果 sign 为 1 表示这是一行有效的数据，如果 sign 为 -1 表示这行数据被删除。当 CollapsingMergeTree 分区合并时同一分区的 +1、-1 将会被抵消，犹如一张纸折叠一般。</p>
+<h2 id="2-1-实操"><a href="#2-1-实操" class="headerlink" title="2.1 实操"></a>2.1 实操</h2><p>创建 CollapsingMergeTree 表</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> collapsing_table<br>(<br>    Id         String,<br>    Code       Int32,<br>    CreateTime DateTime,<br>    Sign       Int8<br>) engine <span class="hljs-operator">=</span> CollapsingMergeTree(Sign)<br>      <span class="hljs-keyword">partition</span> <span class="hljs-keyword">by</span> toYYYYMMDD(CreateTime)<br>      <span class="hljs-keyword">order</span> <span class="hljs-keyword">by</span> Id;<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>注：和其它 mergeTree 引擎一样 CollapsingMergeTree 依然是以 order by 字段作为后续数据唯一性的依据</p>
+</blockquote>
+<p>插入一批原始数据</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> collapsing_table <span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;A000&#x27;</span>, <span class="hljs-number">100</span>, <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span>, <span class="hljs-number">1</span>);<br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> collapsing_table <span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;A001&#x27;</span>, <span class="hljs-number">100</span>, <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span>, <span class="hljs-number">1</span>);<br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> collapsing_table <span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;A002&#x27;</span>, <span class="hljs-number">100</span>, <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span>, <span class="hljs-number">1</span>);<br></code></pre></td></tr></table></figure>
+
+<p>修改 A000 的 Code 为 200 并删除 A002 的数据</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs sql"># 修改 A000 的 Code 为 <span class="hljs-number">200</span><br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> collapsing_table <span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;A000&#x27;</span>, <span class="hljs-number">100</span>, <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span>, <span class="hljs-number">-1</span>);<br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> collapsing_table <span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;A000&#x27;</span>, <span class="hljs-number">200</span>, <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span>, <span class="hljs-number">1</span>);<br># 删除 A002 的数据<br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> collapsing_table <span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;A002&#x27;</span>, <span class="hljs-number">100</span>, <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span>, <span class="hljs-number">-1</span>);<br># 手动执行一下分区合并操作<br>optimize <span class="hljs-keyword">table</span> collapsing_table <span class="hljs-keyword">final</span>;<br></code></pre></td></tr></table></figure>
+
+<p>可以观察到数据已经被删除和修改。</p>
+<p>CollapsingMergeTree 在分区合并折叠数据的时候，遵循下面规则</p>
+<ol>
+<li>如果 sign &#x3D; 1 比 sign &#x3D; -1 多一行，最后保留 sign &#x3D; 1 的数据</li>
+<li>如果 sign &#x3D; 1 比 sign &#x3D; -1 少一行，最后保留 sign &#x3D; -1 的数据</li>
+<li>如果 sign &#x3D; 1 和 sign &#x3D; -1 一样多，且最后一行时 sign &#x3D; 1，则保留第一行的 sign &#x3D; -1 和最后一行 sign &#x3D; 1</li>
+<li>如果 sign &#x3D; 1 和 sign &#x3D; -1 一样多，且最后一行时 sign &#x3D; -1，则什么也不保留</li>
+<li>其余情况 clickhouse 会打印告警日志，但不会报错且查询情况不可预知</li>
+</ol>
+<h2 id="2-2-不足"><a href="#2-2-不足" class="headerlink" title="2.2 不足"></a>2.2 不足</h2><p>当前表的数据如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-operator">*</span><br><span class="hljs-keyword">from</span> collapsing_table;<br><br>Query id: <span class="hljs-number">4</span>b1da757<span class="hljs-operator">-</span>d02a<span class="hljs-number">-4</span>b88<span class="hljs-number">-92e5</span><span class="hljs-number">-1</span>fe659ca462c<br><br>┌─Id───┬─Code─┬──────────CreateTime─┬─Sign─┐<br>│ A002 │  <span class="hljs-number">300</span> │ <span class="hljs-number">2023</span><span class="hljs-number">-08</span><span class="hljs-number">-09</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span> │   <span class="hljs-number">-1</span> │<br>└──────┴──────┴─────────────────────┴──────┘<br>┌─Id───┬─Code─┬──────────CreateTime─┬─Sign─┐<br>│ A002 │  <span class="hljs-number">300</span> │ <span class="hljs-number">2023</span><span class="hljs-number">-08</span><span class="hljs-number">-09</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span> │    <span class="hljs-number">1</span> │<br>└──────┴──────┴─────────────────────┴──────┘<br>┌─Id───┬─Code─┬──────────CreateTime─┬─Sign─┐<br>│ A000 │  <span class="hljs-number">200</span> │ <span class="hljs-number">2023</span><span class="hljs-number">-08</span><span class="hljs-number">-09</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span> │    <span class="hljs-number">1</span> │<br>│ A001 │  <span class="hljs-number">100</span> │ <span class="hljs-number">2023</span><span class="hljs-number">-08</span><span class="hljs-number">-09</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span> │    <span class="hljs-number">1</span> │<br>└──────┴──────┴─────────────────────┴──────┘<br><br><span class="hljs-number">4</span> <span class="hljs-keyword">rows</span> <span class="hljs-keyword">in</span> set. Elapsed: <span class="hljs-number">0.003</span> sec.<br></code></pre></td></tr></table></figure>
+
+<p>从操作来看 A002 是要被删除的</p>
+<p>但是如果查询sql如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> Id, <span class="hljs-built_in">sum</span>(Code), <span class="hljs-built_in">count</span>(Code), <span class="hljs-built_in">avg</span>(Code)<br><span class="hljs-keyword">from</span> collapsing_table<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> Id;<br><br>Query id: <span class="hljs-number">610</span>f6503<span class="hljs-number">-1344</span><span class="hljs-number">-4</span>ba0<span class="hljs-number">-9564</span><span class="hljs-number">-6327277</span>ffe95<br><br>┌─Id───┬─<span class="hljs-built_in">sum</span>(Code)─┬─<span class="hljs-built_in">count</span>(Code)─┬─<span class="hljs-built_in">avg</span>(Code)─┐<br>│ A001 │       <span class="hljs-number">100</span> │           <span class="hljs-number">1</span> │       <span class="hljs-number">100</span> │<br>│ A000 │       <span class="hljs-number">200</span> │           <span class="hljs-number">1</span> │       <span class="hljs-number">200</span> │<br>│ A002 │       <span class="hljs-number">600</span> │           <span class="hljs-number">2</span> │       <span class="hljs-number">300</span> │<br>└──────┴───────────┴─────────────┴───────────┘<br><br><span class="hljs-number">3</span> <span class="hljs-keyword">rows</span> <span class="hljs-keyword">in</span> set. Elapsed: <span class="hljs-number">0.005</span> sec.<br></code></pre></td></tr></table></figure>
+
+<p>此时的结果是不对的，因此需要改写 sql</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> Id, <span class="hljs-built_in">sum</span>(Code <span class="hljs-operator">*</span> Sign), <span class="hljs-built_in">count</span>(Code <span class="hljs-operator">*</span> Sign), <span class="hljs-built_in">avg</span>(Code <span class="hljs-operator">*</span> Sign)<br><span class="hljs-keyword">from</span> collapsing_table<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> Id<br><span class="hljs-keyword">having</span> <span class="hljs-built_in">sum</span>(Sign) <span class="hljs-operator">&gt;</span> <span class="hljs-number">0</span>;<br><br>Query id: a3fe84d0<span class="hljs-number">-33</span>a5<span class="hljs-number">-4287</span><span class="hljs-operator">-</span>bd02<span class="hljs-number">-49</span>ab03df1852<br><br>┌─Id───┬─<span class="hljs-built_in">sum</span>(multiply(Code, Sign))─┬─<span class="hljs-built_in">count</span>(multiply(Code, Sign))─┬─<span class="hljs-built_in">avg</span>(multiply(Code, Sign))─┐<br>│ A001 │                       <span class="hljs-number">100</span> │                           <span class="hljs-number">1</span> │                       <span class="hljs-number">100</span> │<br>│ A000 │                       <span class="hljs-number">200</span> │                           <span class="hljs-number">1</span> │                       <span class="hljs-number">200</span> │<br>└──────┴───────────────────────────┴─────────────────────────────┴───────────────────────────┘<br><br><span class="hljs-number">2</span> <span class="hljs-keyword">rows</span> <span class="hljs-keyword">in</span> set. Elapsed: <span class="hljs-number">0.005</span> sec.<br></code></pre></td></tr></table></figure>
+
+<p>当然还有一种方式就是在查询数据前执行分区合并操作<code>optimize table collapsing_table final;</code>，但这种方式效率极低在生产中慎用</p>
+<p>同时 CollapsingMergeTree 还存在一些问题，例如在分区合并前用户是可以看到所有数据的。当然上面所说的问题都不是最致命的，CollapsingMergeTree 最致命点在于对于 sign 的写入顺序有严格的要求，对于一个删除操作正常的顺序应该是先写入 1 再写入 -1</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> collapsing_table <span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;A002&#x27;</span>, <span class="hljs-number">300</span>, <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span>, <span class="hljs-number">1</span>);<br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> collapsing_table <span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;A002&#x27;</span>, <span class="hljs-number">300</span>, <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span>, <span class="hljs-number">-1</span>);<br></code></pre></td></tr></table></figure>
+
+<p>但如果颠倒顺序</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> collapsing_table <span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;A002&#x27;</span>, <span class="hljs-number">300</span>, <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span>, <span class="hljs-number">-1</span>);<br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> collapsing_table <span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;A002&#x27;</span>, <span class="hljs-number">300</span>, <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span>, <span class="hljs-number">1</span>);<br></code></pre></td></tr></table></figure>
+
+<p>则不会被删除。而在生产环境一旦 CollapsingMergeTree 在多线程中处理就无法保证写入顺序了。</p>
+<p>当然幸运的是 clickhouse 也注意到 CollapsingMergeTree 的缺点并推出了新的表引擎 VersionedCollapsingMergeTree，在 CollapsingMergeTree 的基础上将按照写入顺序折叠修改为按照版本号顺序进行折叠，而版本号交由用户来管理。VersionedCollapsingMergeTree 引擎的操作就交给读者来体验，毕竟下面还有一种更贴合 TP 数据库操作的删除操作</p>
+<h1 id="三、lightweight"><a href="#三、lightweight" class="headerlink" title="三、lightweight"></a>三、lightweight</h1><p>上面介绍了通过 mutation 和 mergeTree 来实现删除操作，但是 mutation 操作太重，mergeTree 则需要修改 sql 且删除操作受分区合并时机影响。从 clickhouse v22.8 开始提供了一个轻量级删除功能且语法为标准 sql 🎉🎉🎉</p>
+<h2 id="3-1-实操"><a href="#3-1-实操" class="headerlink" title="3.1 实操"></a>3.1 实操</h2><p>准备表和数据</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> lightweight_operate<br>(<br>    UserId     UInt64,<br>    Score      UInt64,<br>    CreateTime DateTime<br>) engine <span class="hljs-operator">=</span> MergeTree()<br>      <span class="hljs-keyword">partition</span> <span class="hljs-keyword">by</span> toYYYYMMDD(CreateTime)<br>      <span class="hljs-keyword">order</span> <span class="hljs-keyword">by</span> UserId;<br><br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> lightweight_operate<br><span class="hljs-keyword">select</span> number,<br>       <span class="hljs-built_in">abs</span>(number <span class="hljs-operator">-</span> <span class="hljs-number">100</span>),<br>       <span class="hljs-string">&#x27;2023-08-08 00:00:00&#x27;</span><br><span class="hljs-keyword">from</span> system.numbers<br>limit <span class="hljs-number">1000000</span>;<br><br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> lightweight_operate<br><span class="hljs-keyword">select</span> number,<br>       <span class="hljs-built_in">abs</span>(number <span class="hljs-operator">-</span> <span class="hljs-number">100</span>),<br>       <span class="hljs-string">&#x27;2023-08-09 00:00:00&#x27;</span><br><span class="hljs-keyword">from</span> system.numbers<br>limit <span class="hljs-number">1000000</span>;<br></code></pre></td></tr></table></figure>
+
+<p>同样删除 20230808 分区中 1000-10000 之间的所有数据，sql 如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">delete</span> <span class="hljs-keyword">from</span> lightweight_operate <span class="hljs-keyword">where</span> toYYYYMMDD(CreateTime) <span class="hljs-operator">=</span> <span class="hljs-number">20230808</span> <span class="hljs-keyword">and</span> UserId <span class="hljs-keyword">between</span> <span class="hljs-number">1000</span> <span class="hljs-keyword">and</span> <span class="hljs-number">10000</span>;<br></code></pre></td></tr></table></figure>
+
+<p>验证一下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-built_in">count</span>() <span class="hljs-keyword">from</span> lightweight_operate <span class="hljs-keyword">where</span> toYYYYMMDD(CreateTime) <span class="hljs-operator">=</span> <span class="hljs-number">20230808</span>;<br><br>Query id: <span class="hljs-number">0344</span>da3b<span class="hljs-number">-5</span>ea5<span class="hljs-number">-436</span>d<span class="hljs-operator">-</span>ba29<span class="hljs-operator">-</span>cfb1a8e3420e<br><br>┌─<span class="hljs-built_in">count</span>()─┐<br>│  <span class="hljs-number">990999</span> │<br>└─────────┘<br><br><span class="hljs-number">1</span> <span class="hljs-type">row</span> <span class="hljs-keyword">in</span> set. Elapsed: <span class="hljs-number">0.008</span> sec. Processed <span class="hljs-number">1.00</span> million <span class="hljs-keyword">rows</span>, <span class="hljs-number">5.00</span> MB (<span class="hljs-number">128.59</span> million <span class="hljs-keyword">rows</span><span class="hljs-operator">/</span>s., <span class="hljs-number">642.93</span> MB<span class="hljs-operator">/</span>s.)<br></code></pre></td></tr></table></figure>
+
+<p>成功删除</p>
+<h2 id="3-2-原理"><a href="#3-2-原理" class="headerlink" title="3.2 原理"></a>3.2 原理</h2><p>查看磁盘目录</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs shell">» ll<br>total 16<br>drwxr-x---@ 16 wjun  admin  512 Aug  9 21:09 20230808_1_1_0<br>drwxr-x---@ 18 wjun  admin  576 Aug  9 21:10 20230808_1_1_0_3<br>drwxr-x---@ 16 wjun  admin  512 Aug  9 21:09 20230809_2_2_0<br>drwxr-x---@ 15 wjun  admin  480 Aug  9 21:10 20230809_2_2_0_3<br>drwxr-x---@  2 wjun  admin   64 Aug  9 21:09 detached<br>-rw-r-----@  1 wjun  admin    1 Aug  9 21:09 format_version.txt<br>-rw-r-----@  1 wjun  admin  171 Aug  9 21:10 mutation_3.txt<br><br>» du -h<br>  0B	./detached<br>7.7M	./20230809_2_2_0<br>7.7M	./20230808_1_1_0<br>  0B	./20230809_2_2_0_3<br> 28K	./20230808_1_1_0_3<br> 15M	.<br></code></pre></td></tr></table></figure>
+
+<p>可以看出轻量删除依然是一个 mutation 操作，从<code>system.mutations</code>表也可以验证，但轻量删除生成的新的分区 20230808_1_1_0_3 仅 28K，那么轻量删除和 mutation 删除的区别在哪</p>
+<p>查看 20230808_1_1_0_3 磁盘目录</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs shell">wjun :: data/delete_operate/lightweight_operate ‹stable› » ll 20230808_1_1_0_3<br>total 15800<br>-rw-r-----@ 2 wjun  admin    18042 Aug  9 21:09 CreateTime.bin<br>-rw-r-----@ 2 wjun  admin      375 Aug  9 21:09 CreateTime.cmrk2<br>-rw-r-----@ 2 wjun  admin  4004938 Aug  9 21:09 Score.bin<br>-rw-r-----@ 2 wjun  admin      415 Aug  9 21:09 Score.cmrk2<br>-rw-r-----@ 2 wjun  admin  4004915 Aug  9 21:09 UserId.bin<br>-rw-r-----@ 2 wjun  admin      415 Aug  9 21:09 UserId.cmrk2<br>-rw-r-----@ 1 wjun  admin     4493 Aug  9 21:10 _row_exists.bin<br>-rw-r-----@ 1 wjun  admin      236 Aug  9 21:10 _row_exists.cmrk2<br>-rw-r-----@ 1 wjun  admin      589 Aug  9 21:10 checksums.txt<br>-rw-r-----@ 1 wjun  admin      110 Aug  9 21:10 columns.txt<br>-rw-r-----@ 2 wjun  admin        7 Aug  9 21:09 count.txt<br>-rw-r-----@ 1 wjun  admin       10 Aug  9 21:10 default_compression_codec.txt<br>-rw-r-----@ 1 wjun  admin        1 Aug  9 21:10 metadata_version.txt<br>-rw-r-----@ 2 wjun  admin        8 Aug  9 21:09 minmax_CreateTime.idx<br>-rw-r-----@ 2 wjun  admin        4 Aug  9 21:09 partition.dat<br>-rw-r-----@ 2 wjun  admin      173 Aug  9 21:09 primary.cidx<br></code></pre></td></tr></table></figure>
+
+<p>发现多了一组 _row_exists 文件而其余文件的 inode 连接数均为 2，也就是说轻量删除是真正的给字段添加了一个标记。</p>
+<p>在查询的时候过滤</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-08-09/lightweight_deletes_v2_b891b54446.png" alt="lightweight_deletes_v2_b891b54446" style="zoom:80%;" />
+
+<p>在分区合并的时候删除</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-08-09/lightweight_delete_merge_1_a2519ab507.png" alt="lightweight_delete_merge_1_a2519ab507" style="zoom:70%;" />
+
+<p>比 mutation 轻的点在于轻量删除不会重构整个分区目录而是重写 _row_exists 文件这样涉及到的修改会少很多，至于分区的拷贝和不涉及删除操作的分区操作逻辑则和上面介绍的 mutation 流程一致</p>
+<h2 id="3-3-不足"><a href="#3-3-不足" class="headerlink" title="3.3 不足"></a>3.3 不足</h2><p>轻量删除的设计思路相比之前的会好上很多，但 clickhouse 毕竟不是 TP 数据库，目前轻量删除依然存在一些问题和限制，如：</p>
+<ol>
+<li>轻量删除是异步的，只有在分区合并的时候才会被真正删除（轻量删除执行完是逻辑上删除）</li>
+<li>对 wide 类型分区友好，对于 compact 类型分区会产生较大的磁盘 IO</li>
+<li>会修改分区在磁盘中的名称，可能会影响备份</li>
+</ol>
+<p>对于 mutation 是否为异步操作可以通过参数进行配置，只需将<code>mutations_sync</code>置为 true 即可</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">set</span> mutations_sync <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>;<br></code></pre></td></tr></table></figure>
+
+<p>至于其它的不足需要用户结合实际场景进行取舍</p>
+
+      </div>
+    </div>
+  </article>
+  <div class="post__foot">
+    
+      <div class="like-author">
+  <input type="checkbox" id="likeCode" />
+  <div class="author-face">
+    <img height="100px"
+         width="100px"
+         id="front-face"
+         alt="author face"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-10-31/IMG_4075.JPG" />
+    <img height="100px"
+         width="100px"
+         id="back-face"
+         alt="like code"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-08-10/QRcode_A%20%E2%80%94%20a1.jpg" />
+  </div>
+  <div class="like-text">请作者喝杯咖啡</div>
+  <label for="likeCode" class="like-btn">
+    <svg viewBox="0 0 1024 1024"
+         width="20px"
+         style="margin-right: 10px"
+         height="20px">
+      <path d="M466.88 908.96L113.824 563.296a270.08 270.08 0 0 1 0-387.392c108.8-106.56 284.896-106.56 393.696 0 1.504 1.472 2.976 2.944 4.448 4.48 1.472-1.536 2.944-3.008 4.448-4.48 108.8-106.56 284.896-106.56 393.696 0a269.952 269.952 0 0 1 34.016 347.072l-387.392 385.6a64 64 0 0 1-89.92 0.384z" p-id="13650" fill="#ee4242" />
+    </svg>
+    喜欢作者
+  </label>
+</div>
+
+    
+    <div class="post-nav">
+  
+    <a class="post-nav-item-left" href="/2023/09/14/hive/mapjoin-problem/">
+      <div class="text-align">
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+        <span class="text-small">上一篇</span>
+      </div>
+      <div>hive 的 mapjoin 一定是优化手段吗</div>
+    </a>
+  
+  <div class="vhr"></div>
+  
+    <a class="post-nav-item-right" href="/2023/08/01/clickhouse/query-cache/">
+      <div class="text-align">
+        <span class="text-small">下一篇</span>
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             transform="scale(-1,-1)"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+      </div>
+      clickhouse 查询缓存
+    </a>
+  
+</div>
+
+    
+      <div class="related-post">
+  <div class="related__head">
+  <a href="/tags/clickhouse/" class="post-tag">#clickhouse</a>
+
+</div>
+  <div class="realated__body">
+    
+      <div class="null"><div class="null-item"><div class="null-title"><a href="/2023/08/01/clickhouse/query-cache/" title="clickhouse 查询缓存" rel="bookmark">clickhouse 查询缓存</a></div></div><div class="null-item"><div class="null-title"><a href="/2023/07/27/clickhouse/sql-downgrade/" title="clickhouse 分布式查询降级为本地查询" rel="bookmark">clickhouse 分布式查询降级为本地查询</a></div></div></div>
+    
+  </div>
+</div>
+
+    
+    <div id="gitalk-container"></div>
+  </div>
+
+    </div>
+    <div class="foot">
+      <div class="foot-inner">
+        <div class="foot__head">
+          
+            <div class="foot-line">
+              <div class="matts">探</div><div class="matts">索</div><div class="matts">未</div><div class="matts">知</div><div class="matts">激</div><div class="matts">发</div><div class="matts">灵</div><div class="matts">感</div>
+            </div>
+          
+            <div class="foot-line">
+              <div class="matts">自</div><div class="matts">由</div><div class="matts">创</div><div class="matts">造</div><div class="matts">跨</div><div class="matts">越</div><div class="matts">界</div><div class="matts">限</div>
+            </div>
+          
+        </div>
+        <div class="foot__body">
+          
+            <div class="foot-item">
+              <div class="foot-item__head">朋友</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/icon/icon-link.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://kpretty.tech">博主的主站</a>
+                  </div>
+                
+                <div class="text">
+                  <img alt="link" height="20px" width="20px" src="/images/icon/icon-link+.svg" />
+                  <a class="foot-link"
+                     href="mailto:wjunjobs@outlook.com?subject=%E7%94%B3%E8%AF%B7%20Hozen.site%20%E7%9A%84%E5%8F%8B%E9%93%BE%E4%BD%8D%E7%BD%AE">
+                  申请友链</a>
+                </div>
+              </div>
+            </div>
+          
+          
+            <div class="foot-item">
+              <div class="foot-item__head">账号</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/logo-github.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://github.com/kpretty">github</a>
+                  </div>
+                
+              </div>
+            </div>
+          
+          <div class="foot-item">
+            <div class="foot-item__head">联系</div>
+            <div class="foot-item__body">
+              <div class="text">
+                <img alt="link" height="20px" width="20px" src="/images/icon/icon-email.svg" />
+                <a class="foot-link" href="mailto:wjunjobs@outlook.com">wjunjobs@outlook.com</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="copyright">
+          <a href="https://uhope.fun">Youth Hope Fun</a> &nbsp;|&nbsp;由&nbsp;<a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>&nbsp;及&nbsp;
+          <svg width="20" height="20" viewBox="0 0 725 725">
+            <path fill-rule="evenodd" fill="rgb(221, 221, 221)" d="M145.870,236.632 L396.955,103.578 L431.292,419.44 L156.600,522.53 L145.870,236.632 Z" />
+            <path fill-rule="evenodd" fill="rgb(159, 159, 159)" d="M396.955,103.578 L564.345,234.486 L611.558,513.469 L431.292,419.44 L396.955,103.578 Z" />
+            <path fill-rule="evenodd" fill="rgb(0, 0, 0)" d="M431.292,419.44 L611.558,513.469 L358.327,595.18 L156.600,522.53 L431.292,419.44 Z" />
+          </svg>
+          <a target="_blank" rel="noopener" href="https://github.com/hooozen/hexo-theme-tranquility">致远</a>&nbsp;驱动
+        </div>
+      </div>
+    </div>
+    
+      <script src="https://unpkg.com/js-polyfills@0.1.43/es6.js"></script>
+      <script id="MathJax-script"
+              async
+              src="https://www.unpkg.com/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+    
+    
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+<script type="text/javascript">
+  const param = JSON.parse('{"enable":true,"owner":"kpretty","admin":["kpretty"],"repo":"blog-comment","clientID":"0ca314933bd70869d267","clientSecret":"1d9a7930f641b37c9900ae8105fab1275c4d84ba","distractionFreeMode":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":"zh-CN"}')
+  param.id = location.pathname
+  const gitalk = new Gitalk(param)
+  gitalk.render('gitalk-container')
+</script>
+
+
+  </body>
+</html>

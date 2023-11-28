@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="utf8" />
+    <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+    <title>
+      
+        链表反转 | Youth Hope Fun
+      
+    </title>
+    <meta name="description" content="" />
+    <meta name="keywords" content="big data,olap,code" />
+    
+      <link rel="apple-touch-icon"
+            sizes="180x180"
+            href="/images/apple-touch-icon.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="32x32"
+            href="/images/favicon-32x32.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="16x16"
+            href="/images/favicon-16x16.png" />
+    
+    
+      <link rel="mask-icon"
+            href="/images/logo.svg"
+            color="" />
+    
+    
+    
+      
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/regular.ttf);
+        font-weight: regular;
+    }
+  </style>
+
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/bold.ttf);
+        font-weight: bold;
+    }
+  </style>
+
+
+    
+    <link rel="stylesheet"
+          type="text/css"
+          href='/css/layout.css' />
+    
+      <script>
+          var _hmt = _hmt || [];
+          (function() {
+              var hm = document.createElement("script");
+              hm.src = "https://hm.baidu.com/hm.js?eac8d81fcf4d967c1dd1edbcc2f81719";
+              var s = document.getElementsByTagName("script")[0];
+              s.parentNode.insertBefore(hm, s);
+          })();
+      </script>
+    
+    
+  <link rel="stylesheet" type="text/css" href="/css/post.css" />
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+
+  <meta name="generator" content="Hexo 6.3.0"></head>
+  <body>
+    <div class="head">
+      <div class="nav">
+        <a href='/' class="nav-logo">
+          <img alt="logo" height="60px" width="60px" src="/images/logo.svg" />
+        </a>
+        <input id="navBtn" type="checkbox" />
+        <div class="nav-menu">
+          
+            
+              <a class="nav-menu-item" href="/bigdata">大数据</a>
+            
+              <a class="nav-menu-item" href="/algorithm">算法</a>
+            
+              <a class="nav-menu-item" href="/other">其他</a>
+            
+          
+        </div>
+        <label class="nav-btn" for="navBtn"></label>
+      </div>
+    </div>
+    <div class="body">
+      
+  <article class="post-content">
+    <div class="post-inner">
+      <div class="post-content__head">
+        <div class="post-title">链表反转</div>
+        <div class="post-info">
+          
+  <a href="/tags/%E9%93%BE%E8%A1%A8/" class="post-tag">#链表</a>
+
+
+          <span class="post-date">2023-07-25</span>
+        </div>
+      </div>
+      
+      <div class="post-content__body">
+        
+          <div class="post-gallery">
+            
+          </div>
+        
+        <h1 id="一、定义链表"><a href="#一、定义链表" class="headerlink" title="一、定义链表"></a>一、定义链表</h1><p>这里定义带哨兵的链表</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">package</span> linkedlist;<br><br><span class="hljs-comment">// 反转链表的五种方式</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">ReverseLinkedList</span> &#123;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-type">Node</span> <span class="hljs-variable">head</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Node</span>(<span class="hljs-literal">null</span>, <span class="hljs-literal">null</span>);<br><br>    <span class="hljs-comment">// 快速填充链表</span><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">fill</span><span class="hljs-params">()</span> &#123;<br>        <span class="hljs-type">Node</span> <span class="hljs-variable">n5</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Node</span>(<span class="hljs-number">5</span>, <span class="hljs-literal">null</span>);<br>        <span class="hljs-type">Node</span> <span class="hljs-variable">n4</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Node</span>(<span class="hljs-number">4</span>, n5);<br>        <span class="hljs-type">Node</span> <span class="hljs-variable">n3</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Node</span>(<span class="hljs-number">3</span>, n4);<br>        <span class="hljs-type">Node</span> <span class="hljs-variable">n2</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Node</span>(<span class="hljs-number">2</span>, n3);<br>        head.next = <span class="hljs-keyword">new</span> <span class="hljs-title class_">Node</span>(<span class="hljs-number">1</span>, n2);<br>    &#125;<br><br>    <span class="hljs-comment">// 打印链表</span><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">display</span><span class="hljs-params">()</span> &#123;<br>        <span class="hljs-type">Node</span> <span class="hljs-variable">p</span> <span class="hljs-operator">=</span> head.next;<br>        <span class="hljs-keyword">while</span> (p != <span class="hljs-literal">null</span>) &#123;<br>            System.out.print(p.value + <span class="hljs-string">&quot; -&gt; &quot;</span>);<br>            p = p.next;<br>        &#125;<br>    &#125;<br><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">Node</span> &#123;<br>        <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> Object value;<br>        <span class="hljs-keyword">private</span> Node next;<br><br>        <span class="hljs-keyword">public</span> <span class="hljs-title function_">Node</span><span class="hljs-params">(Object value, Node next)</span> &#123;<br>            <span class="hljs-built_in">this</span>.value = value;<br>            <span class="hljs-built_in">this</span>.next = next;<br>        &#125;<br>    &#125;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">main</span><span class="hljs-params">(String[] args)</span> &#123;<br>        <span class="hljs-type">ReverseLinkedList</span> <span class="hljs-variable">linkedList</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">ReverseLinkedList</span>();<br>        linkedList.fill();<br>        linkedList.display();<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h1 id="二、反转链表"><a href="#二、反转链表" class="headerlink" title="二、反转链表"></a>二、反转链表</h1><h2 id="2-1-方式一"><a href="#2-1-方式一" class="headerlink" title="2.1 方式一"></a>2.1 方式一</h2><p>创建一个新的链表，依次遍历老的链表获取的元素插入到新链表首位</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> ReverseLinkedList <span class="hljs-title function_">reverse1</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-comment">// 创建新的链表</span><br>    <span class="hljs-type">ReverseLinkedList</span> <span class="hljs-variable">newList</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">ReverseLinkedList</span>();<br>    <span class="hljs-comment">// 遍历当前链表</span><br>    <span class="hljs-type">Node</span> <span class="hljs-variable">p</span> <span class="hljs-operator">=</span> head.next;<br>    <span class="hljs-keyword">while</span> (p != <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-comment">// 首插法</span><br>        newList.head.next = <span class="hljs-keyword">new</span> <span class="hljs-title class_">Node</span>(p.value, newList.head.next);<br>        p = p.next;<br>    &#125;<br>    <span class="hljs-keyword">return</span> newList;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>下面用图解释一下<code>newList.head.next = new Node(p.value, newList.head.next);</code>是如何实现将元素插入头部</p>
+<p>对于 <code>new Node(p.value, newList.head.next)</code> 图示如下</p>
+<p><img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-26/image-20230726101707933.png"></p>
+<p>最后 <code>newList.head.next = new</code></p>
+<p><img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-26/image-20230726101753206.png"></p>
+<h2 id="2-2-方式二"><a href="#2-2-方式二" class="headerlink" title="2.2 方式二"></a>2.2 方式二</h2><p>方式一的缺点就是每一个节点都需要重新创建，空间复杂度较高。</p>
+<p>因此方式二对这点进行优化，其基本思路依然是遍历，只不过是依次移除原链表的每个节点并将其插入到新链表的头部，下面是将一个 node 节点添加到链表头部</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">addFirst</span><span class="hljs-params">(Node node)</span> &#123;<br>    node.next = head.next;<br>    head.next = node;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>下面是移除链表头部元素</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> Node <span class="hljs-title function_">removeFirst</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-comment">// 保存第一个元素</span><br>    <span class="hljs-type">Node</span> <span class="hljs-variable">p</span> <span class="hljs-operator">=</span> head.next;<br>    <span class="hljs-comment">// 判空</span><br>    <span class="hljs-keyword">if</span> (p != <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-comment">// 移除第一个元素</span><br>        head.next = head.next.next;<br>    &#125;<br>    <span class="hljs-keyword">return</span> p;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>因此方式二的方式如下</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> ReverseLinkedList <span class="hljs-title function_">reverse2</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-type">ReverseLinkedList</span> <span class="hljs-variable">newList</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">ReverseLinkedList</span>();<br>    <span class="hljs-comment">// 依次移除链表元素</span><br>    <span class="hljs-type">Node</span> <span class="hljs-variable">node</span> <span class="hljs-operator">=</span> removeFirst();<br>    <span class="hljs-keyword">while</span> (node != <span class="hljs-literal">null</span>) &#123;<br>        newList.addFirst(node);<br>        node = removeFirst();<br>    &#125;<br><br>    <span class="hljs-keyword">return</span> newList;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="2-3-方式三"><a href="#2-3-方式三" class="headerlink" title="2.3 方式三"></a>2.3 方式三</h2><p>方式二依然是创建了新的链表对象，只不过没有创建新的节点对象，有没有一种方式是在原链表的基础上直接进行反转？首先我们实现通过递归方式找到链表的最后一个节点</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">test</span><span class="hljs-params">()</span> &#123;<br>    System.out.println(recursion(head.next).value);<br>&#125;<br><br><span class="hljs-keyword">private</span> Node <span class="hljs-title function_">recursion</span><span class="hljs-params">(Node node)</span> &#123;<br>    <span class="hljs-keyword">if</span> (node == <span class="hljs-literal">null</span> || node.next == <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-keyword">return</span> node; <span class="hljs-comment">// 最后一个节点</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> recursion(node.next);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>递归调用实例图如下：</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-26/image-20230726101817141.png" alt="image-20230726101817141" style="zoom:50%;" />
+
+<p>上述递归我们发现</p>
+<p>当 node &#x3D; 4 时，此时 node -&gt; 4; node.next -&gt; 5，不看其他节点只将 5 -&gt; 4，那么此刻的指向时 5 -&gt; 4; 4 -&gt; 5</p>
+<p>当 node &#x3D; 3 时，此时 node -&gt; 3; node.next -&gt; 4，不看其他节点只将 4 -&gt; 3，那么此刻的指向时 5 -&gt; 4; 4 -&gt; 3; 3 -&gt; 4</p>
+<p>当 node &#x3D; 2 时，此时 node -&gt; 2; node.next -&gt; 3，不看其他节点只将 3 -&gt; 2，那么此刻的指向时 5 -&gt; 4; 4 -&gt; 3; 3 -&gt; 2; 2 -&gt; 3</p>
+<p>当 node &#x3D; 1 时，此时 node -&gt; 1; node.next -&gt; 2，不看其他节点只将 2 -&gt; 1，那么此刻的指向时 5 -&gt; 4; 4 -&gt; 3; 3 -&gt; 2; 2 -&gt; 1; 1 -&gt; 2</p>
+<p>看起来似乎是反转了链表，但细心的同学或许发现问题所在，就是每层递归结束后的节点指向存在循环引用的风险，且最后一次递归应该指向 null，所以我们在交换指针指向时多做一步，例如</p>
+<p>当 node &#x3D; 4，我们需要将 5 -&gt; 4 同时将 4 -&gt; null 即可，代码如下</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">private</span> Node <span class="hljs-title function_">recursion</span><span class="hljs-params">(Node node)</span> &#123;<br>    <span class="hljs-keyword">if</span> (node == <span class="hljs-literal">null</span> || node.next == <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-keyword">return</span> node; <span class="hljs-comment">// 最后一个节点</span><br>    &#125;<br>    <span class="hljs-type">Node</span> <span class="hljs-variable">recursion</span> <span class="hljs-operator">=</span> recursion(node.next);<br>    node.next.next = node;<br>    node.next = <span class="hljs-literal">null</span>;<br>    <span class="hljs-keyword">return</span> recursion;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>ReverseLinkedList 作为对 Node 的封装同时携带一个哨兵节点，那么我们只需要在方法结束获取返回值时，将 head 指向该返回值即可，因此方法三代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">reverse3</span><span class="hljs-params">()</span> &#123;<br>    head.next = recursion(head.next);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="2-4-方法四"><a href="#2-4-方法四" class="headerlink" title="2.4 方法四"></a>2.4 方法四</h2><p>其思路和方法二类似，区别在于该方法是在原链表上面直接操作指向实现反转，思路如下：</p>
+<p>step-1: 定义三个指针，n1 始终指向链表第一个节点，o1 初始状态指向链表第一个节点，o2 始终指向 o1 的下一个节点</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-26/image-20230726101843005.png" alt="image-20230726101843005" style="zoom:50%;" />
+
+<p>step-2: 断开 o2 指向的节点，即<code>o1.next = o2.next</code></p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-26/image-20230726101900732.png" alt="image-20230726101900732" style="zoom:50%;" />
+
+<p>step-3: 将 o2 链入到链表头部，即<code>o2.next = n1</code></p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-26/image-20230726101923872.png" alt="image-20230726101923872" style="zoom:50%;" />
+
+<p>step-4: 此时已完成1、2节点的反转，下面需要让 n1 和 o2 回归原本语义，即 n1 始终指向链表头部，那么<code>o1 = o2</code>；o2 始终指向 o1 的下一个节点，那么<code>o2 = o1.next</code></p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-26/image-20230726101947270.png" alt="image-20230726101947270" style="zoom:50%;" />
+
+<p>step-5: 重复 step-2 直到 <code>o2 = null</code></p>
+<p>代码实现如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">reverse4</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-comment">// step-1: 定义三个指针，n1 始终指向链表第一个节点，o1 初始状态指向链表第一个节点，o2 始终指向 o1 的下一个节点</span><br>    <span class="hljs-type">Node</span> <span class="hljs-variable">n1</span> <span class="hljs-operator">=</span> head.next;<br>    <span class="hljs-type">Node</span> <span class="hljs-variable">o1</span> <span class="hljs-operator">=</span> head.next;<br>    <span class="hljs-keyword">if</span> (o1 == <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-comment">// 空链表</span><br>        <span class="hljs-keyword">return</span>;<br>    &#125;<br>    <span class="hljs-type">Node</span> <span class="hljs-variable">o2</span> <span class="hljs-operator">=</span> o1.next;<br>    <span class="hljs-comment">// step-5: 重复 step-2 直到 o2 = null</span><br>    <span class="hljs-keyword">while</span> (o2 != <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-comment">// step-2: 断开 o2 指向的节点</span><br>        o1.next = o2.next;<br>        <span class="hljs-comment">// step-3: 将 o2 链入到链表头部</span><br>        o2.next = n1;<br>        <span class="hljs-comment">// step-4: 此时已完成1、2节点的反转，下面需要让 n1 和 o2 回归原本语义</span><br>        n1 = o2;<br>        o2 = o1.next;<br>    &#125;<br>    <span class="hljs-comment">// 改变 head 指向</span><br>    head.next = n1;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="2-5-方法五"><a href="#2-5-方法五" class="headerlink" title="2.5 方法五"></a>2.5 方法五</h2><p>方法五是对方法二的重构，思路就是循环老链表每个节点依次插入到新的链表头部，区别在于方法二是面向对象，而方法五是面向过程，相较于此代码量和可读性将进一步提高，思路如下</p>
+<p>step-1: 定义两个指针，o1 始终指向老链表头部，n1 始终指向新链表头部，初始为 null</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-26/image-20230726102006442.png" alt="image-20230726102006442" style="zoom:50%;" />
+
+<p>step-2: 先定义一个辅助节点 o2 指向 o1 的下一个节点，然后将 o1 指向的节点链入 n1 新链表的头部。o2 的作用是让 o1 能回归原本的语言（当然用 head 回去也是一样的，只不过要平凡动 head）</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-26/image-20230726102018325.png" alt="image-20230726102018325" style="zoom:50%;" />
+
+<p>step-3: n1、o1 归位，即 n1 始终指向新链表头部，o1 始终指向老链表头部，这里 o1 需要借助 o2 才能归为</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-26/image-20230726102037145.png" alt="image-20230726102037145" style="zoom:50%;" />
+
+<p>step-4: 如果 o1 不指向 null 则回到 step-2，否则结束</p>
+<p>代码实现如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">reverse5</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-comment">// step-1: 定义两个指针，o1 始终指向老链表头部，n1 始终指向新链表头部，初始为 null</span><br>    <span class="hljs-type">Node</span> <span class="hljs-variable">o1</span> <span class="hljs-operator">=</span> head.next;<br>    <span class="hljs-type">Node</span> <span class="hljs-variable">n1</span> <span class="hljs-operator">=</span> <span class="hljs-literal">null</span>;<br>    <span class="hljs-comment">// step-4: 如果 o1 不指向 null 则回到 step-2，否则结束</span><br>    <span class="hljs-keyword">while</span> (o1 != <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-comment">// step-2: 先定义一个辅助节点 o2 指向 o1 的下一个节点，然后将 o1 指向的节点链入 n1 新链表的头部</span><br>        <span class="hljs-type">Node</span> <span class="hljs-variable">o2</span> <span class="hljs-operator">=</span> o1.next;<br>        o1.next = n1;<br>        <span class="hljs-comment">// step-3: n1、o1 归位，即 n1 始终指向新链表头部，o1 始终指向老链表头部</span><br>        n1 = o1;<br>        o1 = o2;<br>    &#125;<br>    <span class="hljs-comment">// 改变 head 指向</span><br>    head.next = n1;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+      </div>
+    </div>
+  </article>
+  <div class="post__foot">
+    
+      <div class="like-author">
+  <input type="checkbox" id="likeCode" />
+  <div class="author-face">
+    <img height="100px"
+         width="100px"
+         id="front-face"
+         alt="author face"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-10-31/IMG_4075.JPG" />
+    <img height="100px"
+         width="100px"
+         id="back-face"
+         alt="like code"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-08-10/QRcode_A%20%E2%80%94%20a1.jpg" />
+  </div>
+  <div class="like-text">请作者喝杯咖啡</div>
+  <label for="likeCode" class="like-btn">
+    <svg viewBox="0 0 1024 1024"
+         width="20px"
+         style="margin-right: 10px"
+         height="20px">
+      <path d="M466.88 908.96L113.824 563.296a270.08 270.08 0 0 1 0-387.392c108.8-106.56 284.896-106.56 393.696 0 1.504 1.472 2.976 2.944 4.448 4.48 1.472-1.536 2.944-3.008 4.448-4.48 108.8-106.56 284.896-106.56 393.696 0a269.952 269.952 0 0 1 34.016 347.072l-387.392 385.6a64 64 0 0 1-89.92 0.384z" p-id="13650" fill="#ee4242" />
+    </svg>
+    喜欢作者
+  </label>
+</div>
+
+    
+    <div class="post-nav">
+  
+    <a class="post-nav-item-left" href="/2023/07/27/clickhouse/sql-downgrade/">
+      <div class="text-align">
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+        <span class="text-small">上一篇</span>
+      </div>
+      <div>clickhouse 分布式查询降级为本地查询</div>
+    </a>
+  
+  <div class="vhr"></div>
+  
+    <a class="post-nav-item-right" href="/2023/07/23/life/riding-230723/">
+      <div class="text-align">
+        <span class="text-small">下一篇</span>
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             transform="scale(-1,-1)"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+      </div>
+      2023年7月23日骑行记录
+    </a>
+  
+</div>
+
+    
+      <div class="related-post">
+  <div class="related__head">
+  <a href="/tags/%E9%93%BE%E8%A1%A8/" class="post-tag">#链表</a>
+
+</div>
+  <div class="realated__body">
+    
+      
+    
+  </div>
+</div>
+
+    
+    <div id="gitalk-container"></div>
+  </div>
+
+    </div>
+    <div class="foot">
+      <div class="foot-inner">
+        <div class="foot__head">
+          
+            <div class="foot-line">
+              <div class="matts">探</div><div class="matts">索</div><div class="matts">未</div><div class="matts">知</div><div class="matts">激</div><div class="matts">发</div><div class="matts">灵</div><div class="matts">感</div>
+            </div>
+          
+            <div class="foot-line">
+              <div class="matts">自</div><div class="matts">由</div><div class="matts">创</div><div class="matts">造</div><div class="matts">跨</div><div class="matts">越</div><div class="matts">界</div><div class="matts">限</div>
+            </div>
+          
+        </div>
+        <div class="foot__body">
+          
+            <div class="foot-item">
+              <div class="foot-item__head">朋友</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/icon/icon-link.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://kpretty.tech">博主的主站</a>
+                  </div>
+                
+                <div class="text">
+                  <img alt="link" height="20px" width="20px" src="/images/icon/icon-link+.svg" />
+                  <a class="foot-link"
+                     href="mailto:wjunjobs@outlook.com?subject=%E7%94%B3%E8%AF%B7%20Hozen.site%20%E7%9A%84%E5%8F%8B%E9%93%BE%E4%BD%8D%E7%BD%AE">
+                  申请友链</a>
+                </div>
+              </div>
+            </div>
+          
+          
+            <div class="foot-item">
+              <div class="foot-item__head">账号</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/logo-github.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://github.com/kpretty">github</a>
+                  </div>
+                
+              </div>
+            </div>
+          
+          <div class="foot-item">
+            <div class="foot-item__head">联系</div>
+            <div class="foot-item__body">
+              <div class="text">
+                <img alt="link" height="20px" width="20px" src="/images/icon/icon-email.svg" />
+                <a class="foot-link" href="mailto:wjunjobs@outlook.com">wjunjobs@outlook.com</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="copyright">
+          <a href="https://uhope.fun">Youth Hope Fun</a> &nbsp;|&nbsp;由&nbsp;<a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>&nbsp;及&nbsp;
+          <svg width="20" height="20" viewBox="0 0 725 725">
+            <path fill-rule="evenodd" fill="rgb(221, 221, 221)" d="M145.870,236.632 L396.955,103.578 L431.292,419.44 L156.600,522.53 L145.870,236.632 Z" />
+            <path fill-rule="evenodd" fill="rgb(159, 159, 159)" d="M396.955,103.578 L564.345,234.486 L611.558,513.469 L431.292,419.44 L396.955,103.578 Z" />
+            <path fill-rule="evenodd" fill="rgb(0, 0, 0)" d="M431.292,419.44 L611.558,513.469 L358.327,595.18 L156.600,522.53 L431.292,419.44 Z" />
+          </svg>
+          <a target="_blank" rel="noopener" href="https://github.com/hooozen/hexo-theme-tranquility">致远</a>&nbsp;驱动
+        </div>
+      </div>
+    </div>
+    
+      <script src="https://unpkg.com/js-polyfills@0.1.43/es6.js"></script>
+      <script id="MathJax-script"
+              async
+              src="https://www.unpkg.com/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+    
+    
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+<script type="text/javascript">
+  const param = JSON.parse('{"enable":true,"owner":"kpretty","admin":["kpretty"],"repo":"blog-comment","clientID":"0ca314933bd70869d267","clientSecret":"1d9a7930f641b37c9900ae8105fab1275c4d84ba","distractionFreeMode":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":"zh-CN"}')
+  param.id = location.pathname
+  const gitalk = new Gitalk(param)
+  gitalk.render('gitalk-container')
+</script>
+
+
+  </body>
+</html>

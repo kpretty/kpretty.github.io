@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="utf8" />
+    <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+    <title>
+      
+        clickhouse 分布式查询降级为本地查询 | Youth Hope Fun
+      
+    </title>
+    <meta name="description" content="" />
+    <meta name="keywords" content="big data,olap,code" />
+    
+      <link rel="apple-touch-icon"
+            sizes="180x180"
+            href="/images/apple-touch-icon.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="32x32"
+            href="/images/favicon-32x32.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="16x16"
+            href="/images/favicon-16x16.png" />
+    
+    
+      <link rel="mask-icon"
+            href="/images/logo.svg"
+            color="" />
+    
+    
+    
+      
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/regular.ttf);
+        font-weight: regular;
+    }
+  </style>
+
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/bold.ttf);
+        font-weight: bold;
+    }
+  </style>
+
+
+    
+    <link rel="stylesheet"
+          type="text/css"
+          href='/css/layout.css' />
+    
+      <script>
+          var _hmt = _hmt || [];
+          (function() {
+              var hm = document.createElement("script");
+              hm.src = "https://hm.baidu.com/hm.js?eac8d81fcf4d967c1dd1edbcc2f81719";
+              var s = document.getElementsByTagName("script")[0];
+              s.parentNode.insertBefore(hm, s);
+          })();
+      </script>
+    
+    
+  <link rel="stylesheet" type="text/css" href="/css/post.css" />
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+
+  <meta name="generator" content="Hexo 6.3.0"></head>
+  <body>
+    <div class="head">
+      <div class="nav">
+        <a href='/' class="nav-logo">
+          <img alt="logo" height="60px" width="60px" src="/images/logo.svg" />
+        </a>
+        <input id="navBtn" type="checkbox" />
+        <div class="nav-menu">
+          
+            
+              <a class="nav-menu-item" href="/bigdata">大数据</a>
+            
+              <a class="nav-menu-item" href="/algorithm">算法</a>
+            
+              <a class="nav-menu-item" href="/other">其他</a>
+            
+          
+        </div>
+        <label class="nav-btn" for="navBtn"></label>
+      </div>
+    </div>
+    <div class="body">
+      
+  <article class="post-content">
+    <div class="post-inner">
+      <div class="post-content__head">
+        <div class="post-title">clickhouse 分布式查询降级为本地查询</div>
+        <div class="post-info">
+          
+  <a href="/tags/clickhouse/" class="post-tag">#clickhouse</a>
+
+
+          <span class="post-date">2023-07-27</span>
+        </div>
+      </div>
+      
+      <div class="post-content__body">
+        
+          <div class="post-gallery">
+            
+          </div>
+        
+        <p>在基于 clickhouse 做类数仓建模时通常的做法是在本地创建物化视图，然后使用分布式表做代理对外提供服务。我们知道 clickhouse 对于 DQL 内部实现了分布式，而对于 DDL 则需要我们自动实现比如：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">drop</span> <span class="hljs-keyword">table</span> table_name <span class="hljs-keyword">on</span> cluster cluster_name;<br></code></pre></td></tr></table></figure>
+
+<p>来实现分布式 DDL，但对于</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-built_in">count</span>() <span class="hljs-keyword">from</span> distributed_table_name;<br></code></pre></td></tr></table></figure>
+
+<p>此类分布式表的查询会自动执行分布式查询并在查询入口节点汇总最终数据，即 MPP 架构。</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-27/image-20230727094657201.png" alt="image-20230727094657201" style="zoom:50%;" />
+
+<blockquote>
+<p>在 clickhouse 中本地表通常以 local 结尾，而代理它们的分布式表通常以 all 结尾（只是规范）</p>
+</blockquote>
+<p>但在一些特殊情况下，上述的分布式查询会降级为本地查询，此时对分布式表的查询会随机路由到一张代理的本地表中导致该 SQL 的返回结果在反复横跳即为诡异</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-27/image-20230727094948720.png" alt="image-20230727094948720" style="zoom:50%;" />
+
+<h1 id="一、问题复现"><a href="#一、问题复现" class="headerlink" title="一、问题复现"></a>一、问题复现</h1><h2 id="1-1-知识点复习"><a href="#1-1-知识点复习" class="headerlink" title="1.1 知识点复习"></a>1.1 知识点复习</h2><p>这里先复习一下本文所涉及到的知识点或概念：副本和分片</p>
+<p>在 clickhouse 中用户可以将所有节点按照自己的需求组成不同应用场景的集群，可以将所有节点组成一个单一集群也可以划分成多个小集群。副本和分片的区别在于：</p>
+<ol>
+<li>从功能层面说：副本是防止数据丢失，增加数据冗余；分片是实现数据的水平切分，提高查询效率</li>
+<li>从数据层面说：副本之间的数据是完全相同的；分片之间的数据是完全不同的</li>
+</ol>
+<p>clickhouse 目前支持副本的表引擎只有 MergeTree Family，其格式为 Replicated*MergeTree，同时副本表需要依赖 zookeeper 实现个节点数据同步的协同工作，这里配置集群、zookeeper以及复制表是如何工作的就不做过多介绍。集群的信息通过下面的命令查看</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-operator">*</span> <span class="hljs-keyword">from</span> system.clusters;<br></code></pre></td></tr></table></figure>
+
+<p>结果如下</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-27/image-20230727102133634.png" alt="image-20230727102133634" style="zoom:50%;" />
+
+<p>创建复制表需要在原 MergeTree 表的基础上额外指定 zookeeper 路径（分片信息）和副本信息</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql">engine <span class="hljs-operator">=</span> ReplicatedMergeTree(path:String, replica:String [, columns:<span class="hljs-keyword">any</span>])<br></code></pre></td></tr></table></figure>
+
+<p>path一致表示它们是同一个分片，后面的 replica 标记为不同的副本，通常 replica 填写本机 ip 或主机名</p>
+<p>下面创建一个 3 分片 2 副本的 MergeTree 表作为本次问题复现的 ODS 表</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> event_local <span class="hljs-keyword">on</span> cluster cluster<br>(<br>    ldtime Datetime,<br>    ip     IPv4<br>) engine <span class="hljs-operator">=</span> ReplicatedMergeTree(<span class="hljs-string">&#x27;/clickhouse/tables/default/&#123;shard&#125;/event_local&#x27;</span>, <span class="hljs-string">&#x27;&#123;replica&#125;&#x27;</span>)<br>      <span class="hljs-keyword">order</span> <span class="hljs-keyword">by</span> ldtime<br>      <span class="hljs-keyword">partition</span> <span class="hljs-keyword">by</span> toYYYYMMDD(ldtime);<br></code></pre></td></tr></table></figure>
+
+<p>说明：</p>
+<p><code>&#123;shard&#125;</code>和<code>&#123;replica&#125;</code>是 clickhouse 的宏，在配置文件中指定的可以通过下面的 sql 查看</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-operator">*</span><br><span class="hljs-keyword">from</span> system.macros;<br></code></pre></td></tr></table></figure>
+
+<p>结果如下</p>
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-07-27/image-20230727105208951.png" alt="image-20230727105208951" style="zoom:70%;" />
+
+<p>同时 path 也存在一定的约束，通常是<code>/clickhouse/tables/数据库名称/分片编号/表名</code></p>
+<p><code>on cluster cluster</code>是标记该 DDL 为分布式 DDL 且最后的 cluster 为集群名称上面截图所示，因此该 DDL 语句会被发送到 cluster 的集群中所有节点去执行，省去了我们手动去各个节点执行的步骤。同时该分布式 DDL 也会展示所有节点的响应，执行 SQL 的入口节点会等待所有节点创建完将信息返回用户（默认最大等待时间为 180s，超过后会转入后台进行）</p>
+<p>当然也可以使用 remote 查询所有节点宏信息</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-operator">*</span><br><span class="hljs-keyword">from</span> remote(<span class="hljs-string">&#x27;chi-settings-01-cluster-0-0&#x27;</span>, <span class="hljs-string">&#x27;system&#x27;</span>, <span class="hljs-string">&#x27;macros&#x27;</span>, <span class="hljs-string">&#x27;username&#x27;</span>, <span class="hljs-string">&#x27;password&#x27;</span>)<br><span class="hljs-keyword">where</span> macro <span class="hljs-keyword">in</span> (<span class="hljs-string">&#x27;replica&#x27;</span>, <span class="hljs-string">&#x27;shard&#x27;</span>)<br><span class="hljs-keyword">union</span> <span class="hljs-keyword">all</span><br><span class="hljs-keyword">select</span> <span class="hljs-operator">*</span><br><span class="hljs-keyword">from</span> remote(<span class="hljs-string">&#x27;chi-settings-01-cluster-0-1&#x27;</span>, <span class="hljs-string">&#x27;system&#x27;</span>, <span class="hljs-string">&#x27;macros&#x27;</span>, <span class="hljs-string">&#x27;username&#x27;</span>, <span class="hljs-string">&#x27;password&#x27;</span>)<br><span class="hljs-keyword">where</span> macro <span class="hljs-keyword">in</span> (<span class="hljs-string">&#x27;replica&#x27;</span>, <span class="hljs-string">&#x27;shard&#x27;</span>)<br><span class="hljs-keyword">union</span> <span class="hljs-keyword">all</span><br><span class="hljs-keyword">select</span> <span class="hljs-operator">*</span><br><span class="hljs-keyword">from</span> remote(<span class="hljs-string">&#x27;chi-settings-01-cluster-1-0&#x27;</span>, <span class="hljs-string">&#x27;system&#x27;</span>, <span class="hljs-string">&#x27;macros&#x27;</span>, <span class="hljs-string">&#x27;username&#x27;</span>, <span class="hljs-string">&#x27;password&#x27;</span>)<br><span class="hljs-keyword">where</span> macro <span class="hljs-keyword">in</span> (<span class="hljs-string">&#x27;replica&#x27;</span>, <span class="hljs-string">&#x27;shard&#x27;</span>)<br><span class="hljs-keyword">union</span> <span class="hljs-keyword">all</span><br><span class="hljs-keyword">select</span> <span class="hljs-operator">*</span><br><span class="hljs-keyword">from</span> remote(<span class="hljs-string">&#x27;chi-settings-01-cluster-1-1&#x27;</span>, <span class="hljs-string">&#x27;system&#x27;</span>, <span class="hljs-string">&#x27;macros&#x27;</span>, <span class="hljs-string">&#x27;username&#x27;</span>, <span class="hljs-string">&#x27;password&#x27;</span>)<br><span class="hljs-keyword">where</span> macro <span class="hljs-keyword">in</span> (<span class="hljs-string">&#x27;replica&#x27;</span>, <span class="hljs-string">&#x27;shard&#x27;</span>)<br><span class="hljs-keyword">union</span> <span class="hljs-keyword">all</span><br><span class="hljs-keyword">select</span> <span class="hljs-operator">*</span><br><span class="hljs-keyword">from</span> remote(<span class="hljs-string">&#x27;chi-settings-01-cluster-2-0&#x27;</span>, <span class="hljs-string">&#x27;system&#x27;</span>, <span class="hljs-string">&#x27;macros&#x27;</span>, <span class="hljs-string">&#x27;username&#x27;</span>, <span class="hljs-string">&#x27;password&#x27;</span>)<br><span class="hljs-keyword">where</span> macro <span class="hljs-keyword">in</span> (<span class="hljs-string">&#x27;replica&#x27;</span>, <span class="hljs-string">&#x27;shard&#x27;</span>)<br><span class="hljs-keyword">union</span> <span class="hljs-keyword">all</span><br><span class="hljs-keyword">select</span> <span class="hljs-operator">*</span><br><span class="hljs-keyword">from</span> remote(<span class="hljs-string">&#x27;chi-settings-01-cluster-2-1&#x27;</span>, <span class="hljs-string">&#x27;system&#x27;</span>, <span class="hljs-string">&#x27;macros&#x27;</span>, <span class="hljs-string">&#x27;username&#x27;</span>, <span class="hljs-string">&#x27;password&#x27;</span>)<br><span class="hljs-keyword">where</span> macro <span class="hljs-keyword">in</span> (<span class="hljs-string">&#x27;replica&#x27;</span>, <span class="hljs-string">&#x27;shard&#x27;</span>);<br></code></pre></td></tr></table></figure>
+
+<p>随机向三个分片中写入一定量的数据，可以观察副本数据的同步</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs sql"># chi<span class="hljs-operator">-</span>settings<span class="hljs-number">-01</span><span class="hljs-operator">-</span>cluster<span class="hljs-number">-0</span><span class="hljs-number">-0</span><br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> event_local<br><span class="hljs-keyword">values</span> (toDateTime(<span class="hljs-string">&#x27;2023-07-01 00:00:00&#x27;</span>), <span class="hljs-string">&#x27;192.168.0.1&#x27;</span>),<br>       (toDateTime(<span class="hljs-string">&#x27;2023-07-01 00:00:00&#x27;</span>), <span class="hljs-string">&#x27;192.168.0.1&#x27;</span>),<br>       (toDateTime(<span class="hljs-string">&#x27;2023-07-01 00:00:00&#x27;</span>), <span class="hljs-string">&#x27;192.168.0.1&#x27;</span>),<br>       (toDateTime(<span class="hljs-string">&#x27;2023-07-02 00:00:00&#x27;</span>), <span class="hljs-string">&#x27;192.168.0.2&#x27;</span>);<br># chi<span class="hljs-operator">-</span>settings<span class="hljs-number">-01</span><span class="hljs-operator">-</span>cluster<span class="hljs-number">-1</span><span class="hljs-number">-1</span><br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> event_local<br><span class="hljs-keyword">values</span> (toDateTime(<span class="hljs-string">&#x27;2023-07-03 00:00:00&#x27;</span>), <span class="hljs-string">&#x27;192.168.0.3&#x27;</span>),<br>       (toDateTime(<span class="hljs-string">&#x27;2023-07-03 00:00:00&#x27;</span>), <span class="hljs-string">&#x27;192.168.0.3&#x27;</span>),<br>       (toDateTime(<span class="hljs-string">&#x27;2023-07-04 00:00:00&#x27;</span>), <span class="hljs-string">&#x27;192.168.0.4&#x27;</span>);<br># chi<span class="hljs-operator">-</span>settings<span class="hljs-number">-01</span><span class="hljs-operator">-</span>cluster<span class="hljs-number">-2</span><span class="hljs-number">-0</span><br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> event_local<br><span class="hljs-keyword">values</span> (toDateTime(<span class="hljs-string">&#x27;2023-07-05 00:00:00&#x27;</span>), <span class="hljs-string">&#x27;192.168.0.5&#x27;</span>),<br>       (toDateTime(<span class="hljs-string">&#x27;2023-07-06 00:00:00&#x27;</span>), <span class="hljs-string">&#x27;192.168.0.6&#x27;</span>);<br></code></pre></td></tr></table></figure>
+
+<p>根据分片的特性 event 全量数据应该是各个分片的 compact 因此我们需要一张分布式表来代理所有的副本分片表</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> event_all<br>(<br>    ldtime Datetime,<br>    ip     IPv4<br>) engine <span class="hljs-operator">=</span> Distributed(<span class="hljs-string">&#x27;&#123;cluster&#125;&#x27;</span>, <span class="hljs-string">&#x27;default&#x27;</span>, <span class="hljs-string">&#x27;event_local&#x27;</span>, rand());<br></code></pre></td></tr></table></figure>
+
+<p>rand() 为分片健，当数据通过分布式表写入时，会根据分片健将数据写入不同的分片中。分片健要求是一个整型数值，可以是表字段或返回整型的函数。</p>
+<blockquote>
+<p>注：生产中分布式表通常只做查请求，不做写请求。因为如果对分布式表执行写请求每条数据都需要在 clickhouse 中计算所属分片效率不高，建议的做法是业务测做”分库分表“将数据直接写入对应的本地表不让 clickhouse 来做自动分片。</p>
+</blockquote>
+<h2 id="1-2-复现问题"><a href="#1-2-复现问题" class="headerlink" title="1.2 复现问题"></a>1.2 复现问题</h2><p>对 event_all 查询结果如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-operator">*</span> <span class="hljs-keyword">from</span> event_all <span class="hljs-keyword">order</span> <span class="hljs-keyword">by</span> ldtime;<br><br><span class="hljs-number">2023</span><span class="hljs-number">-07</span><span class="hljs-number">-01</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span>,<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span><br><span class="hljs-number">2023</span><span class="hljs-number">-07</span><span class="hljs-number">-01</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span>,<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span><br><span class="hljs-number">2023</span><span class="hljs-number">-07</span><span class="hljs-number">-01</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span>,<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span><br><span class="hljs-number">2023</span><span class="hljs-number">-07</span><span class="hljs-number">-02</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span>,<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.2</span><br><span class="hljs-number">2023</span><span class="hljs-number">-07</span><span class="hljs-number">-03</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span>,<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.3</span><br><span class="hljs-number">2023</span><span class="hljs-number">-07</span><span class="hljs-number">-03</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span>,<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.3</span><br><span class="hljs-number">2023</span><span class="hljs-number">-07</span><span class="hljs-number">-04</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span>,<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.4</span><br><span class="hljs-number">2023</span><span class="hljs-number">-07</span><span class="hljs-number">-05</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span>,<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.5</span><br><span class="hljs-number">2023</span><span class="hljs-number">-07</span><span class="hljs-number">-06</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>:<span class="hljs-number">00</span>,<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.6</span><br></code></pre></td></tr></table></figure>
+
+<p>该 SQL 是执行了分布式查询，对于副本表 clickhouse 会按照一定策略读取其中一个副本读取数据，具体的副本表读写流程不是这篇文章重点。下面开始复现问题</p>
+<p>简化一下需求，实时统计每个 ip 出现的个数。正常数仓可能会这么做</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">create</span> materialized <span class="hljs-keyword">view</span> mv_ip_count<br>            engine <span class="hljs-operator">=</span> SummingMergeTree(num)<br>                <span class="hljs-keyword">order</span> <span class="hljs-keyword">by</span> ip<br>            populate<br><span class="hljs-keyword">as</span><br><span class="hljs-keyword">select</span> ip, <span class="hljs-built_in">count</span>() <span class="hljs-keyword">as</span> num<br><span class="hljs-keyword">from</span> event_all<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> ip;<br><br><span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span>,<span class="hljs-number">3</span><br><span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.2</span>,<span class="hljs-number">1</span><br><span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.3</span>,<span class="hljs-number">2</span><br><span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.4</span>,<span class="hljs-number">1</span><br><span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.5</span>,<span class="hljs-number">1</span><br><span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.6</span>,<span class="hljs-number">1</span><br></code></pre></td></tr></table></figure>
+
+<p>这样的结果是没有问题的，但是生产中不是所有的需求都可以这么做。因为之所以创建分布式表是因为数据量很大，需要做分片。那么对于处理后的数据量依然很大的需求我们就不能通过查询分布式表来创建物化视图，因为这样做该物化视图<strong>所有的数据都会存储在该节点上</strong>。</p>
+<p>为了解决这个问题就需要各个节点去统计自己存储在本地的数据，然后再创建一张分布式表对外提供统一的服务，sql 如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">create</span> materialized <span class="hljs-keyword">view</span> mv_ip_count_local <span class="hljs-keyword">on</span> cluster cluster<br>            engine <span class="hljs-operator">=</span> SummingMergeTree(num)<br>                <span class="hljs-keyword">order</span> <span class="hljs-keyword">by</span> ip<br>            populate<br><span class="hljs-keyword">as</span><br><span class="hljs-keyword">select</span> ip, <span class="hljs-built_in">count</span>() <span class="hljs-keyword">as</span> num<br><span class="hljs-keyword">from</span> event_local<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> ip;<br><br><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> mv_ip_count_all<br>(<br>    ip  IPv4,<br>    num UInt64<br>) engine <span class="hljs-operator">=</span> Distributed(<span class="hljs-string">&#x27;&#123;cluster&#125;&#x27;</span>, <span class="hljs-string">&#x27;default&#x27;</span>, <span class="hljs-string">&#x27;mv_ip_count_local&#x27;</span>, rand());<br></code></pre></td></tr></table></figure>
+
+<p>当我们用 mv_ip_count_all 进行二次聚合时</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-built_in">sum</span>(num) <span class="hljs-keyword">from</span> mv_ip_count_all;<br></code></pre></td></tr></table></figure>
+
+<p>其值在 4、3、2 间反复横跳，正确答案应该是 9。这就很纳闷了</p>
+<h1 id="二、问题解决"><a href="#二、问题解决" class="headerlink" title="二、问题解决"></a>二、问题解决</h1><p>这种情况定位出来就是触发了本地查询，反复横跳的数据是各个节点本地查询结果。产生这个问题的原因是下面这个 sql</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">create</span> materialized <span class="hljs-keyword">view</span> mv_ip_count_local <span class="hljs-keyword">on</span> cluster cluster<br>            engine <span class="hljs-operator">=</span> SummingMergeTree(num)<br>                <span class="hljs-keyword">order</span> <span class="hljs-keyword">by</span> ip<br>            populate<br><span class="hljs-keyword">as</span><br><span class="hljs-keyword">select</span> ip, <span class="hljs-built_in">count</span>() <span class="hljs-keyword">as</span> num<br><span class="hljs-keyword">from</span> event_local<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> ip;<br></code></pre></td></tr></table></figure>
+
+<p>首先这个 sql 会被分布式执行，但是 event_local 它是一个副本表，该 sql 执行结束后每个节点都会有一张毫无关联的 SummingMergeTree 表，此时我们又创建了分布式表来代理，造成的后果就是分布式表的数据量暴增 n 倍，n 为副本个数。</p>
+<p>当我们基于分布式表做二次聚合时，clickhouse 或许也发现了这个问题，如果按照正常的 mpp 架构来执行这个 sql 得到的结果就是正确个数的 n 倍，显然这样错误的结果是 clickhouse 无法接受的，因此它将分布式 sql 降级为本地 sql 如文章开头的图二流程。</p>
+<blockquote>
+<p>或许 clickhouse 觉得这样的错误结果比 mpp 流程得到的结果要更容易接受吧，虽然这两个结果都存在问题</p>
+</blockquote>
+<p>分析到这里解决方案也就浮出水面了，就是让 SummingMergeTree 保持和 event_local 一样的副本分片关系即可，即创建具有副本功能的 SummingMergeTree 表</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">create</span> materialized <span class="hljs-keyword">view</span> mv_ip_count_local<br>            <span class="hljs-keyword">on</span> cluster cluster<br>            engine <span class="hljs-operator">=</span> ReplicatedSummingMergeTree(<span class="hljs-string">&#x27;/clickhouse/tables/default/&#123;shard&#125;/mv_ip_count_local&#x27;</span>, <span class="hljs-string">&#x27;&#123;replica&#125;&#x27;</span>, num)<br>                <span class="hljs-keyword">order</span> <span class="hljs-keyword">by</span> ip<br><span class="hljs-keyword">as</span><br><span class="hljs-keyword">select</span> ip, <span class="hljs-built_in">count</span>() <span class="hljs-keyword">as</span> num<br><span class="hljs-keyword">from</span> event_local<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> ip;<br></code></pre></td></tr></table></figure>
+
+<p>分布式表正常创建即可，最终问题解决。</p>
+<h1 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h1><p>出现这个问题本质上是对 clickhouse 的副本分片表、分布式表不熟练，同时 clickhouse 在赋予用户极高自由度的同时也给用户带来了很多心智负担。clickhouse 分布式表还存在很多错误的使用方式，例如基于分布式表做聚合或连接操作时存在大坑，这点后面有时间可以单独出一篇博客来说明。虽然在使用过程中产生过很多匪夷所思的结果，但当分析完原因并成功解决后又会觉得 clickhouse 这么做很合理，它依然是一款极其优秀且强大的 olap 数据库</p>
+
+      </div>
+    </div>
+  </article>
+  <div class="post__foot">
+    
+      <div class="like-author">
+  <input type="checkbox" id="likeCode" />
+  <div class="author-face">
+    <img height="100px"
+         width="100px"
+         id="front-face"
+         alt="author face"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-10-31/IMG_4075.JPG" />
+    <img height="100px"
+         width="100px"
+         id="back-face"
+         alt="like code"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-08-10/QRcode_A%20%E2%80%94%20a1.jpg" />
+  </div>
+  <div class="like-text">请作者喝杯咖啡</div>
+  <label for="likeCode" class="like-btn">
+    <svg viewBox="0 0 1024 1024"
+         width="20px"
+         style="margin-right: 10px"
+         height="20px">
+      <path d="M466.88 908.96L113.824 563.296a270.08 270.08 0 0 1 0-387.392c108.8-106.56 284.896-106.56 393.696 0 1.504 1.472 2.976 2.944 4.448 4.48 1.472-1.536 2.944-3.008 4.448-4.48 108.8-106.56 284.896-106.56 393.696 0a269.952 269.952 0 0 1 34.016 347.072l-387.392 385.6a64 64 0 0 1-89.92 0.384z" p-id="13650" fill="#ee4242" />
+    </svg>
+    喜欢作者
+  </label>
+</div>
+
+    
+    <div class="post-nav">
+  
+    <a class="post-nav-item-left" href="/2023/08/01/clickhouse/query-cache/">
+      <div class="text-align">
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+        <span class="text-small">上一篇</span>
+      </div>
+      <div>clickhouse 查询缓存</div>
+    </a>
+  
+  <div class="vhr"></div>
+  
+    <a class="post-nav-item-right" href="/2023/07/25/linkedlist/reverse/">
+      <div class="text-align">
+        <span class="text-small">下一篇</span>
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             transform="scale(-1,-1)"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+      </div>
+      链表反转
+    </a>
+  
+</div>
+
+    
+      <div class="related-post">
+  <div class="related__head">
+  <a href="/tags/clickhouse/" class="post-tag">#clickhouse</a>
+
+</div>
+  <div class="realated__body">
+    
+      <div class="null"><div class="null-item"><div class="null-title"><a href="/2023/08/09/clickhouse/delete/" title="clickhouse 删除操作" rel="bookmark">clickhouse 删除操作</a></div></div><div class="null-item"><div class="null-title"><a href="/2023/08/01/clickhouse/query-cache/" title="clickhouse 查询缓存" rel="bookmark">clickhouse 查询缓存</a></div></div></div>
+    
+  </div>
+</div>
+
+    
+    <div id="gitalk-container"></div>
+  </div>
+
+    </div>
+    <div class="foot">
+      <div class="foot-inner">
+        <div class="foot__head">
+          
+            <div class="foot-line">
+              <div class="matts">探</div><div class="matts">索</div><div class="matts">未</div><div class="matts">知</div><div class="matts">激</div><div class="matts">发</div><div class="matts">灵</div><div class="matts">感</div>
+            </div>
+          
+            <div class="foot-line">
+              <div class="matts">自</div><div class="matts">由</div><div class="matts">创</div><div class="matts">造</div><div class="matts">跨</div><div class="matts">越</div><div class="matts">界</div><div class="matts">限</div>
+            </div>
+          
+        </div>
+        <div class="foot__body">
+          
+            <div class="foot-item">
+              <div class="foot-item__head">朋友</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/icon/icon-link.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://kpretty.tech">博主的主站</a>
+                  </div>
+                
+                <div class="text">
+                  <img alt="link" height="20px" width="20px" src="/images/icon/icon-link+.svg" />
+                  <a class="foot-link"
+                     href="mailto:wjunjobs@outlook.com?subject=%E7%94%B3%E8%AF%B7%20Hozen.site%20%E7%9A%84%E5%8F%8B%E9%93%BE%E4%BD%8D%E7%BD%AE">
+                  申请友链</a>
+                </div>
+              </div>
+            </div>
+          
+          
+            <div class="foot-item">
+              <div class="foot-item__head">账号</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/logo-github.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://github.com/kpretty">github</a>
+                  </div>
+                
+              </div>
+            </div>
+          
+          <div class="foot-item">
+            <div class="foot-item__head">联系</div>
+            <div class="foot-item__body">
+              <div class="text">
+                <img alt="link" height="20px" width="20px" src="/images/icon/icon-email.svg" />
+                <a class="foot-link" href="mailto:wjunjobs@outlook.com">wjunjobs@outlook.com</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="copyright">
+          <a href="https://uhope.fun">Youth Hope Fun</a> &nbsp;|&nbsp;由&nbsp;<a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>&nbsp;及&nbsp;
+          <svg width="20" height="20" viewBox="0 0 725 725">
+            <path fill-rule="evenodd" fill="rgb(221, 221, 221)" d="M145.870,236.632 L396.955,103.578 L431.292,419.44 L156.600,522.53 L145.870,236.632 Z" />
+            <path fill-rule="evenodd" fill="rgb(159, 159, 159)" d="M396.955,103.578 L564.345,234.486 L611.558,513.469 L431.292,419.44 L396.955,103.578 Z" />
+            <path fill-rule="evenodd" fill="rgb(0, 0, 0)" d="M431.292,419.44 L611.558,513.469 L358.327,595.18 L156.600,522.53 L431.292,419.44 Z" />
+          </svg>
+          <a target="_blank" rel="noopener" href="https://github.com/hooozen/hexo-theme-tranquility">致远</a>&nbsp;驱动
+        </div>
+      </div>
+    </div>
+    
+      <script src="https://unpkg.com/js-polyfills@0.1.43/es6.js"></script>
+      <script id="MathJax-script"
+              async
+              src="https://www.unpkg.com/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+    
+    
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+<script type="text/javascript">
+  const param = JSON.parse('{"enable":true,"owner":"kpretty","admin":["kpretty"],"repo":"blog-comment","clientID":"0ca314933bd70869d267","clientSecret":"1d9a7930f641b37c9900ae8105fab1275c4d84ba","distractionFreeMode":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":"zh-CN"}')
+  param.id = location.pathname
+  const gitalk = new Gitalk(param)
+  gitalk.render('gitalk-container')
+</script>
+
+
+  </body>
+</html>

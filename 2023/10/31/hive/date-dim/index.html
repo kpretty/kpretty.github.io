@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="utf8" />
+    <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+    <title>
+      
+        构建 hive 时间维表 | Youth Hope Fun
+      
+    </title>
+    <meta name="description" content="" />
+    <meta name="keywords" content="big data,olap,code" />
+    
+      <link rel="apple-touch-icon"
+            sizes="180x180"
+            href="/images/apple-touch-icon.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="32x32"
+            href="/images/favicon-32x32.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="16x16"
+            href="/images/favicon-16x16.png" />
+    
+    
+      <link rel="mask-icon"
+            href="/images/logo.svg"
+            color="" />
+    
+    
+    
+      
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/regular.ttf);
+        font-weight: regular;
+    }
+  </style>
+
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/bold.ttf);
+        font-weight: bold;
+    }
+  </style>
+
+
+    
+    <link rel="stylesheet"
+          type="text/css"
+          href='/css/layout.css' />
+    
+      <script>
+          var _hmt = _hmt || [];
+          (function() {
+              var hm = document.createElement("script");
+              hm.src = "https://hm.baidu.com/hm.js?eac8d81fcf4d967c1dd1edbcc2f81719";
+              var s = document.getElementsByTagName("script")[0];
+              s.parentNode.insertBefore(hm, s);
+          })();
+      </script>
+    
+    
+  <link rel="stylesheet" type="text/css" href="/css/post.css" />
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+
+  <meta name="generator" content="Hexo 6.3.0"></head>
+  <body>
+    <div class="head">
+      <div class="nav">
+        <a href='/' class="nav-logo">
+          <img alt="logo" height="60px" width="60px" src="/images/logo.svg" />
+        </a>
+        <input id="navBtn" type="checkbox" />
+        <div class="nav-menu">
+          
+            
+              <a class="nav-menu-item" href="/bigdata">大数据</a>
+            
+              <a class="nav-menu-item" href="/algorithm">算法</a>
+            
+              <a class="nav-menu-item" href="/other">其他</a>
+            
+          
+        </div>
+        <label class="nav-btn" for="navBtn"></label>
+      </div>
+    </div>
+    <div class="body">
+      
+  <article class="post-content">
+    <div class="post-inner">
+      <div class="post-content__head">
+        <div class="post-title">构建 hive 时间维表</div>
+        <div class="post-info">
+          
+  <a href="/tags/hive/" class="post-tag">#hive</a>
+
+
+          <span class="post-date">2023-10-31</span>
+        </div>
+      </div>
+      
+      <div class="post-content__body">
+        
+          <div class="post-gallery">
+            
+          </div>
+        
+        <blockquote>
+<p>众所周知 hive 的时间处理异常繁琐且在一些涉及日期的统计场景中会写较长的 sql，例如：周累计、周环比等；本文将使用维表的形式降低时间处理的复杂度，提前计算好标准时间字符串未来可能需要转换的形式。</p>
+</blockquote>
+<h1 id="一、表设计"><a href="#一、表设计" class="headerlink" title="一、表设计"></a>一、表设计</h1><p>结合业务场景常用的时间字符串格式为 yyyyMMdd，因此我们将这种格式字段作为维表的关联键，用来派生剩下的字段，例如 yyyy-MM-dd、yyyy&#x2F;MM&#x2F;dd、yyyy、MM、dd 以及令人头疼的周（w），因此当前版本的时间维表 DDL 如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs hive">create table dim_xxx.dim_dateformat<br>(<br>    dt          string comment &#x27;日期，yyyymmdd&#x27;,<br>    dt_format1  string comment &#x27;日期，yyyy-mm-dd&#x27;,<br>    dt_format2  string comment &#x27;日期，yyyy/mm/dd&#x27;,<br>    dt_year     string comment &#x27;所在年份&#x27;,<br>    dt_month    string comment &#x27;所在月份&#x27;,<br>    dt_day      string comment &#x27;所在日&#x27;,<br>    dt_week_str string comment &#x27;星期（英文）&#x27;,<br>    dt_week_num string comment &#x27;星期（数字）&#x27;,<br>    dt_abs_week bigint comment &#x27;绝对周，从 19700101 为第一周&#x27;,<br>    dt_rel_week string comment &#x27;相对周，从本年的第一个周一为第一周&#x27;<br>) comment &#x27;日期维表&#x27;<br>    stored as parquet;<br></code></pre></td></tr></table></figure>
+
+<p>需要解释一下 dt_abs_week 和 dt_rel_week 字段，该字段用于提升周累计、周环比的计算效率。dt_abs_week 绝对周是约定 19700101 为第一周，后续每遇到一个周一加一；dt_rel_week 主要用来对外展示，例如：</p>
+<ol>
+<li>截止昨日周累计：获取通过 dt 获取昨日所在的 dt_abs_week 或 dt_rel_week，从而可以当前周的 dt 范围，根据 dt 关联业务表即可</li>
+<li>周环比：获取通过 dt 获取昨日所在的 dt_abs_week - 1 即可获取环比的所在周，再结合 dt_week_num 可以灵活控制环比整周或环比上周的对应星期</li>
+</ol>
+<h1 id="二、填充数据"><a href="#二、填充数据" class="headerlink" title="二、填充数据"></a>二、填充数据</h1><p>这里使用 python 生成 csv 并 load 进去即可（这种方式最简单，对比过使用 sql 来实现），因为生产环境 hive 表的存储格式往往不是 textfile，例如博主所在公司所用的存储格式就是 parquet，遵循一切从简的原则，创建同 schema 的 textfile 表（一切从简，注释都不写）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs hive">create table dim_xxx.dim_dateformat_load<br>(<br>    dt          string,<br>    dt_format1  string,<br>    dt_format2  string,<br>    dt_year     string,<br>    dt_month    string,<br>    dt_day      string,<br>    dt_week_str string,<br>    dt_week_num string,<br>    dt_abs_week string,<br>    dt_rel_week string<br>)<br>    row format delimited fields terminated by &#x27;,&#x27;<br>    stored as textfile;<br></code></pre></td></tr></table></figure>
+
+<p>下面的重点是 python 如何实现，直接上代码</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">import</span> datetime<br><span class="hljs-keyword">import</span> csv<br><br><span class="hljs-comment"># 定义日期范围</span><br>start_date = datetime.date(<span class="hljs-number">1970</span>, <span class="hljs-number">1</span>, <span class="hljs-number">1</span>)<br>end_date = datetime.date(<span class="hljs-number">2500</span>, <span class="hljs-number">12</span>, <span class="hljs-number">31</span>)<br><br><span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(file=<span class="hljs-string">&#x27;dim_dateformat.csv&#x27;</span>, mode=<span class="hljs-string">&#x27;w&#x27;</span>, encoding=<span class="hljs-string">&#x27;utf8&#x27;</span>, newline=<span class="hljs-string">&#x27;&#x27;</span>) <span class="hljs-keyword">as</span> f:<br>    writer = csv.writer(f)<br><br>    <span class="hljs-comment"># 循环遍历</span><br>    current_date = start_date<br>    <span class="hljs-comment"># 初始绝对周</span><br>    abs_week_num = <span class="hljs-number">1</span><br>    <span class="hljs-comment"># 初始相对周</span><br>    rel_week_num = <span class="hljs-number">1</span><br>    rel_year = <span class="hljs-number">1970</span><br>    display_year_of_week = <span class="hljs-string">&#x27;1970-1&#x27;</span><br>    <span class="hljs-keyword">while</span> current_date &lt;= end_date:<br>        <span class="hljs-comment"># 各种时间格式</span><br>        format1 = current_date.strftime(<span class="hljs-string">&quot;%Y%m%d&quot;</span>)<br>        format2 = current_date.strftime(<span class="hljs-string">&quot;%Y-%m-%d&quot;</span>)<br>        format3 = current_date.strftime(<span class="hljs-string">&quot;%Y/%m/%d&quot;</span>)<br>        <span class="hljs-comment"># 年、月、日、星期</span><br>        year = current_date.year<br>        month = current_date.strftime(<span class="hljs-string">&quot;%m&quot;</span>)<br>        day = current_date.strftime(<span class="hljs-string">&quot;%d&quot;</span>)<br>        day_of_week1 = current_date.strftime(<span class="hljs-string">&quot;%A&quot;</span>)<br>        day_of_week2 = current_date.strftime(<span class="hljs-string">&quot;%w&quot;</span>)<br><br>        day_of_week2 = day_of_week2 <span class="hljs-keyword">if</span> day_of_week2 != <span class="hljs-string">&#x27;0&#x27;</span> <span class="hljs-keyword">else</span> <span class="hljs-string">&#x27;7&#x27;</span><br><br>        <span class="hljs-keyword">if</span> day_of_week2 == <span class="hljs-string">&#x27;1&#x27;</span>:<br>            abs_week_num += <span class="hljs-number">1</span><br>            <span class="hljs-comment"># 计算相对周</span><br>            rel_week_num += <span class="hljs-number">1</span><br>            <span class="hljs-keyword">if</span> rel_year != year:<br>                rel_year = year<br>                rel_week_num = <span class="hljs-number">1</span><br>            display_year_of_week = <span class="hljs-built_in">str</span>(rel_year) + <span class="hljs-string">&#x27;-&#x27;</span> + <span class="hljs-built_in">str</span>(rel_week_num)<br><br>        <span class="hljs-comment"># 写入 csv</span><br>        writer.writerow([format1, format2, format3, year, month, day, day_of_week1, day_of_week2, abs_week_num,<br>                         display_year_of_week])<br><br>        <span class="hljs-comment"># ++</span><br>        current_date += datetime.timedelta(days=<span class="hljs-number">1</span>)<br></code></pre></td></tr></table></figure>
+
+<p>解释一下相对周和绝对周的计算方式即可</p>
+<ol>
+<li>初始化 abs_week_num、rel_week_num 为 1，rel_year 为 1970</li>
+<li>如果是周一，abs_week_num 加 1；rel_week_num 加 1 转第 3 步。否则转第 4 步</li>
+<li>如果年份不等于 rel_year 则将当前年份赋值给 rel_year 并重置 rel_week_num 为 1</li>
+<li>写入文件</li>
+</ol>
+<p>对于绝对周初始为 1 后逢周一进一即可，对于相对周，对于周的部分也是逢周一进一，若跨年则年份加一后重置周的计数</p>
+<p>之后将得到的 dim_dateformat.csv 文件 load 进 dim_dateformat_load 并执行下面 sql</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs hive">insert overwrite table dim_dateformat<br>select * from dim_dateformat_load<br></code></pre></td></tr></table></figure>
+
+<p>结果如下</p>
+<p><img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-10-31/image-20231031213014670.png" alt="image-20231031213014670"></p>
+<p>接下来就可以拿着这张维表尽情玩耍吧</p>
+
+      </div>
+    </div>
+  </article>
+  <div class="post__foot">
+    
+      <div class="like-author">
+  <input type="checkbox" id="likeCode" />
+  <div class="author-face">
+    <img height="100px"
+         width="100px"
+         id="front-face"
+         alt="author face"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-10-31/IMG_4075.JPG" />
+    <img height="100px"
+         width="100px"
+         id="back-face"
+         alt="like code"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-08-10/QRcode_A%20%E2%80%94%20a1.jpg" />
+  </div>
+  <div class="like-text">请作者喝杯咖啡</div>
+  <label for="likeCode" class="like-btn">
+    <svg viewBox="0 0 1024 1024"
+         width="20px"
+         style="margin-right: 10px"
+         height="20px">
+      <path d="M466.88 908.96L113.824 563.296a270.08 270.08 0 0 1 0-387.392c108.8-106.56 284.896-106.56 393.696 0 1.504 1.472 2.976 2.944 4.448 4.48 1.472-1.536 2.944-3.008 4.448-4.48 108.8-106.56 284.896-106.56 393.696 0a269.952 269.952 0 0 1 34.016 347.072l-387.392 385.6a64 64 0 0 1-89.92 0.384z" p-id="13650" fill="#ee4242" />
+    </svg>
+    喜欢作者
+  </label>
+</div>
+
+    
+    <div class="post-nav">
+  
+    <a class="post-nav-item-left" href="/2023/11/22/hive/hive-advance-group/">
+      <div class="text-align">
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+        <span class="text-small">上一篇</span>
+      </div>
+      <div>hive 高阶聚合</div>
+    </a>
+  
+  <div class="vhr"></div>
+  
+    <a class="post-nav-item-right" href="/2023/09/14/hive/mapjoin-problem/">
+      <div class="text-align">
+        <span class="text-small">下一篇</span>
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             transform="scale(-1,-1)"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+      </div>
+      hive 的 mapjoin 一定是优化手段吗
+    </a>
+  
+</div>
+
+    
+      <div class="related-post">
+  <div class="related__head">
+  <a href="/tags/hive/" class="post-tag">#hive</a>
+
+</div>
+  <div class="realated__body">
+    
+      <div class="null"><div class="null-item"><div class="null-title"><a href="/2023/11/22/hive/hive-advance-group/" title="hive 高阶聚合" rel="bookmark">hive 高阶聚合</a></div></div><div class="null-item"><div class="null-title"><a href="/2023/09/14/hive/mapjoin-problem/" title="hive 的 mapjoin 一定是优化手段吗" rel="bookmark">hive 的 mapjoin 一定是优化手段吗</a></div></div></div>
+    
+  </div>
+</div>
+
+    
+    <div id="gitalk-container"></div>
+  </div>
+
+    </div>
+    <div class="foot">
+      <div class="foot-inner">
+        <div class="foot__head">
+          
+            <div class="foot-line">
+              <div class="matts">探</div><div class="matts">索</div><div class="matts">未</div><div class="matts">知</div><div class="matts">激</div><div class="matts">发</div><div class="matts">灵</div><div class="matts">感</div>
+            </div>
+          
+            <div class="foot-line">
+              <div class="matts">自</div><div class="matts">由</div><div class="matts">创</div><div class="matts">造</div><div class="matts">跨</div><div class="matts">越</div><div class="matts">界</div><div class="matts">限</div>
+            </div>
+          
+        </div>
+        <div class="foot__body">
+          
+            <div class="foot-item">
+              <div class="foot-item__head">朋友</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/icon/icon-link.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://kpretty.tech">博主的主站</a>
+                  </div>
+                
+                <div class="text">
+                  <img alt="link" height="20px" width="20px" src="/images/icon/icon-link+.svg" />
+                  <a class="foot-link"
+                     href="mailto:wjunjobs@outlook.com?subject=%E7%94%B3%E8%AF%B7%20Hozen.site%20%E7%9A%84%E5%8F%8B%E9%93%BE%E4%BD%8D%E7%BD%AE">
+                  申请友链</a>
+                </div>
+              </div>
+            </div>
+          
+          
+            <div class="foot-item">
+              <div class="foot-item__head">账号</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/logo-github.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://github.com/kpretty">github</a>
+                  </div>
+                
+              </div>
+            </div>
+          
+          <div class="foot-item">
+            <div class="foot-item__head">联系</div>
+            <div class="foot-item__body">
+              <div class="text">
+                <img alt="link" height="20px" width="20px" src="/images/icon/icon-email.svg" />
+                <a class="foot-link" href="mailto:wjunjobs@outlook.com">wjunjobs@outlook.com</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="copyright">
+          <a href="https://uhope.fun">Youth Hope Fun</a> &nbsp;|&nbsp;由&nbsp;<a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>&nbsp;及&nbsp;
+          <svg width="20" height="20" viewBox="0 0 725 725">
+            <path fill-rule="evenodd" fill="rgb(221, 221, 221)" d="M145.870,236.632 L396.955,103.578 L431.292,419.44 L156.600,522.53 L145.870,236.632 Z" />
+            <path fill-rule="evenodd" fill="rgb(159, 159, 159)" d="M396.955,103.578 L564.345,234.486 L611.558,513.469 L431.292,419.44 L396.955,103.578 Z" />
+            <path fill-rule="evenodd" fill="rgb(0, 0, 0)" d="M431.292,419.44 L611.558,513.469 L358.327,595.18 L156.600,522.53 L431.292,419.44 Z" />
+          </svg>
+          <a target="_blank" rel="noopener" href="https://github.com/hooozen/hexo-theme-tranquility">致远</a>&nbsp;驱动
+        </div>
+      </div>
+    </div>
+    
+      <script src="https://unpkg.com/js-polyfills@0.1.43/es6.js"></script>
+      <script id="MathJax-script"
+              async
+              src="https://www.unpkg.com/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+    
+    
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+<script type="text/javascript">
+  const param = JSON.parse('{"enable":true,"owner":"kpretty","admin":["kpretty"],"repo":"blog-comment","clientID":"0ca314933bd70869d267","clientSecret":"1d9a7930f641b37c9900ae8105fab1275c4d84ba","distractionFreeMode":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":"zh-CN"}')
+  param.id = location.pathname
+  const gitalk = new Gitalk(param)
+  gitalk.render('gitalk-container')
+</script>
+
+
+  </body>
+</html>

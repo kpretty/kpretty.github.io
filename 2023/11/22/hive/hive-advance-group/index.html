@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="utf8" />
+    <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+    <title>
+      
+        hive 高阶聚合 | Youth Hope Fun
+      
+    </title>
+    <meta name="description" content="" />
+    <meta name="keywords" content="big data,olap,code" />
+    
+      <link rel="apple-touch-icon"
+            sizes="180x180"
+            href="/images/apple-touch-icon.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="32x32"
+            href="/images/favicon-32x32.png" />
+    
+    
+      <link rel="icon"
+            type="image/png"
+            sizes="16x16"
+            href="/images/favicon-16x16.png" />
+    
+    
+      <link rel="mask-icon"
+            href="/images/logo.svg"
+            color="" />
+    
+    
+    
+      
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/regular.ttf);
+        font-weight: regular;
+    }
+  </style>
+
+  <style>
+    @font-face {
+        font-family:sourceHanSerif;
+        src: url(/font/bold.ttf);
+        font-weight: bold;
+    }
+  </style>
+
+
+    
+    <link rel="stylesheet"
+          type="text/css"
+          href='/css/layout.css' />
+    
+      <script>
+          var _hmt = _hmt || [];
+          (function() {
+              var hm = document.createElement("script");
+              hm.src = "https://hm.baidu.com/hm.js?eac8d81fcf4d967c1dd1edbcc2f81719";
+              var s = document.getElementsByTagName("script")[0];
+              s.parentNode.insertBefore(hm, s);
+          })();
+      </script>
+    
+    
+  <link rel="stylesheet" type="text/css" href="/css/post.css" />
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+
+  <meta name="generator" content="Hexo 6.3.0"></head>
+  <body>
+    <div class="head">
+      <div class="nav">
+        <a href='/' class="nav-logo">
+          <img alt="logo" height="60px" width="60px" src="/images/logo.svg" />
+        </a>
+        <input id="navBtn" type="checkbox" />
+        <div class="nav-menu">
+          
+            
+              <a class="nav-menu-item" href="/bigdata">大数据</a>
+            
+              <a class="nav-menu-item" href="/algorithm">算法</a>
+            
+              <a class="nav-menu-item" href="/other">其他</a>
+            
+          
+        </div>
+        <label class="nav-btn" for="navBtn"></label>
+      </div>
+    </div>
+    <div class="body">
+      
+  <article class="post-content">
+    <div class="post-inner">
+      <div class="post-content__head">
+        <div class="post-title">hive 高阶聚合</div>
+        <div class="post-info">
+          
+  <a href="/tags/hive/" class="post-tag">#hive</a>
+
+
+          <span class="post-date">2023-11-22</span>
+        </div>
+      </div>
+      
+      <div class="post-content__body">
+        
+          <div class="post-gallery">
+            
+          </div>
+        
+        <p>数仓的最终输出产物就是回答“看什么数据，怎么看”，其中看什么就是指标，怎么看就是维度。指标在整个数仓建模过程中通常都是固定的，关乎口径的问题不轻易变动，但维度则是随时变化，不同业务、不同场景看同一个指标的维度都是不同的，这也就衍生出“即席查询”的一个应用场景。在离线场景一种比较流行的解决方案就是 kylin，通过<strong>预聚合+cube</strong>的方式。而 cube 则是本文的主题</p>
+<span id="more"></span>
+
+<img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-11-22/cover.svg" alt="cover" style="zoom:80%;" />
+
+<p>在 hive 的实现方式就是计算不同的分组情况并将所有的结果 union all 返回即可，从一个简单的例子开始。</p>
+<h1 id="一、数据准备-需求"><a href="#一、数据准备-需求" class="headerlink" title="一、数据准备&amp;需求"></a>一、数据准备&amp;需求</h1><p>小蒋是一家综合性公司的大数据分析工程师，王老板是这家公司的财务总管。这天王老板在大数据平台建了下面的表并填充了若干数据（场景强行合理）</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> dwd_employee_salary<br>(<br>    department string comment <span class="hljs-string">&#x27;部门&#x27;</span>,<br>    team       string comment <span class="hljs-string">&#x27;团队&#x27;</span>,<br>    post       string comment <span class="hljs-string">&#x27;岗位&#x27;</span>,<br>    name       string comment <span class="hljs-string">&#x27;员工姓名&#x27;</span>,<br>    salary     <span class="hljs-type">bigint</span> comment <span class="hljs-string">&#x27;薪水&#x27;</span><br>) comment <span class="hljs-string">&#x27;员工薪资明细表&#x27;</span><br>    stored <span class="hljs-keyword">as</span> parquet;<br><br><br><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> dwd_employee_salary<br><span class="hljs-keyword">values</span> (<span class="hljs-string">&#x27;财务部&#x27;</span>, <span class="hljs-string">&#x27;运营组&#x27;</span>, <span class="hljs-string">&#x27;运营&#x27;</span>, <span class="hljs-string">&#x27;小蒋&#x27;</span>, <span class="hljs-number">30000</span>),<br>       (<span class="hljs-string">&#x27;研发部&#x27;</span>, <span class="hljs-string">&#x27;大数据组&#x27;</span>, <span class="hljs-string">&#x27;研发&#x27;</span>, <span class="hljs-string">&#x27;小王&#x27;</span>, <span class="hljs-number">30000</span>),<br>       (<span class="hljs-string">&#x27;研发部&#x27;</span>, <span class="hljs-string">&#x27;产品组&#x27;</span>, <span class="hljs-string">&#x27;产品经理&#x27;</span>, <span class="hljs-string">&#x27;张三&#x27;</span>, <span class="hljs-number">15000</span>),<br>       (<span class="hljs-string">&#x27;研发部&#x27;</span>, <span class="hljs-string">&#x27;视觉组&#x27;</span>, <span class="hljs-string">&#x27;UI&#x27;</span>, <span class="hljs-string">&#x27;李四&#x27;</span>, <span class="hljs-number">15000</span>),<br>       (<span class="hljs-string">&#x27;研发部&#x27;</span>, <span class="hljs-string">&#x27;视觉组&#x27;</span>, <span class="hljs-string">&#x27;UI&#x27;</span>, <span class="hljs-string">&#x27;王五&#x27;</span>, <span class="hljs-number">10000</span>),<br>       (<span class="hljs-string">&#x27;研发部&#x27;</span>, <span class="hljs-string">&#x27;后端组&#x27;</span>, <span class="hljs-string">&#x27;研发&#x27;</span>, <span class="hljs-string">&#x27;赵六&#x27;</span>, <span class="hljs-number">25000</span>),<br>       (<span class="hljs-string">&#x27;研发部&#x27;</span>, <span class="hljs-string">&#x27;后端组&#x27;</span>, <span class="hljs-string">&#x27;研发&#x27;</span>, <span class="hljs-string">&#x27;田七&#x27;</span>, <span class="hljs-number">20000</span>),<br>       (<span class="hljs-string">&#x27;财务部&#x27;</span>, <span class="hljs-string">&#x27;财务组&#x27;</span>, <span class="hljs-string">&#x27;运营&#x27;</span>, <span class="hljs-string">&#x27;孙八&#x27;</span>, <span class="hljs-number">10000</span>),<br>       (<span class="hljs-string">&#x27;财务部&#x27;</span>, <span class="hljs-string">&#x27;财务组&#x27;</span>, <span class="hljs-string">&#x27;财务&#x27;</span>, <span class="hljs-string">&#x27;钱九&#x27;</span>, <span class="hljs-number">10000</span>),<br>       (<span class="hljs-string">&#x27;财务部&#x27;</span>, <span class="hljs-string">&#x27;财务组&#x27;</span>, <span class="hljs-string">&#x27;财务&#x27;</span>, <span class="hljs-string">&#x27;周十&#x27;</span>, <span class="hljs-number">10000</span>);<br></code></pre></td></tr></table></figure>
+
+<p>王老板给小蒋提出了五点数据需求，如下：</p>
+<ol>
+<li>不同岗位的平均薪资</li>
+<li>不同团队的平均薪资</li>
+<li>不同部门的平均薪资</li>
+<li>不同部门不同岗位的平均薪资</li>
+<li>整个公司的平均薪资</li>
+</ol>
+<p>并且整理成一张表格给到我。</p>
+<h1 id="二、常规实现-聚合"><a href="#二、常规实现-聚合" class="headerlink" title="二、常规实现&amp;聚合"></a>二、常规实现&amp;聚合</h1><p>小蒋拿到需求简单分析一下发现指标相同，只是五个维度不同罢了，对于 sql 的实现只是 group by 的列表不同，于是写下了如下 sql</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> <span class="hljs-keyword">null</span> <span class="hljs-keyword">as</span> department, <span class="hljs-keyword">null</span> <span class="hljs-keyword">as</span> team, post, round(<span class="hljs-built_in">avg</span>(salary)) <span class="hljs-keyword">as</span> avg_salarg, <span class="hljs-string">&#x27;不同岗位的平均薪资&#x27;</span> <span class="hljs-keyword">as</span> type<br><span class="hljs-keyword">from</span> dwd_employee_salary<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> post<br><span class="hljs-keyword">union</span> <span class="hljs-keyword">all</span><br><span class="hljs-keyword">select</span> <span class="hljs-keyword">null</span> <span class="hljs-keyword">as</span> department, team, <span class="hljs-keyword">null</span> <span class="hljs-keyword">as</span> post, round(<span class="hljs-built_in">avg</span>(salary)) <span class="hljs-keyword">as</span> avg_salarg, <span class="hljs-string">&#x27;不同团队的平均薪资&#x27;</span> <span class="hljs-keyword">as</span> type<br><span class="hljs-keyword">from</span> dwd_employee_salary<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> team<br><span class="hljs-keyword">union</span> <span class="hljs-keyword">all</span><br><span class="hljs-keyword">select</span> department, <span class="hljs-keyword">null</span> <span class="hljs-keyword">as</span> team, <span class="hljs-keyword">null</span> <span class="hljs-keyword">as</span> post, round(<span class="hljs-built_in">avg</span>(salary)) <span class="hljs-keyword">as</span> avg_salarg, <span class="hljs-string">&#x27;不同部门的平均薪资&#x27;</span> <span class="hljs-keyword">as</span> type<br><span class="hljs-keyword">from</span> dwd_employee_salary<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> department<br><span class="hljs-keyword">union</span> <span class="hljs-keyword">all</span><br><span class="hljs-keyword">select</span> department, <span class="hljs-keyword">null</span> <span class="hljs-keyword">as</span> team, post, round(<span class="hljs-built_in">avg</span>(salary)) <span class="hljs-keyword">as</span> avg_salarg, <span class="hljs-string">&#x27;不同部门不同岗位的平均薪资&#x27;</span> <span class="hljs-keyword">as</span> type<br><span class="hljs-keyword">from</span> dwd_employee_salary<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> department, post<br><span class="hljs-keyword">union</span> <span class="hljs-keyword">all</span><br><span class="hljs-keyword">select</span> <span class="hljs-keyword">null</span> <span class="hljs-keyword">as</span> department, <span class="hljs-keyword">null</span> <span class="hljs-keyword">as</span> team, <span class="hljs-keyword">null</span> <span class="hljs-keyword">as</span> post, round(<span class="hljs-built_in">avg</span>(salary)) <span class="hljs-keyword">as</span> avg_salarg, <span class="hljs-string">&#x27;整个公司的平均薪资&#x27;</span> <span class="hljs-keyword">as</span> type<br><span class="hljs-keyword">from</span> dwd_employee_salary;<br></code></pre></td></tr></table></figure>
+
+<p>最终的执行结果如下，耗时 2m 4s：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-11-22/image-20231122115343344.png" alt="image-20231122115343344"></p>
+<p>小蒋满心欢喜的把 sql 和结果拿给王老板。</p>
+<h1 id="三、高阶聚合-优化"><a href="#三、高阶聚合-优化" class="headerlink" title="三、高阶聚合&amp;优化"></a>三、高阶聚合&amp;优化</h1><p>王老板对结果没有异议但是对任务耗时和 sql 复杂度提出了质疑，希望小蒋可以让任务运行的更快且 sql 看起来尽可能简洁。小蒋回来后分析了任务日志发现居然启动了 7 个 job，最终确认时间主要都耗在任务的启动上，且重复多次读表、计算中间数据没有合理利用。正在小蒋一筹莫展时看到了 hive 官方文档的高阶聚合其主要的应用场景正是简化 union all，于是上面的 sql 就可以简化成下面这种形式</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> department, team, post, round(<span class="hljs-built_in">avg</span>(salary)) <span class="hljs-keyword">as</span> avg_salarg<br><span class="hljs-keyword">from</span> dwd_employee_salary<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> department, team, post<br>    <span class="hljs-keyword">grouping</span> sets (<br>    ( post),             <span class="hljs-comment">-- 不同岗位的平均薪资</span><br>    ( team),             <span class="hljs-comment">-- 不同团队的平均薪资</span><br>    ( department),       <span class="hljs-comment">-- 不同部门的平均薪资</span><br>    ( department, post), <span class="hljs-comment">-- 不同部门不同岗位的平均薪资</span><br>    ()                   <span class="hljs-comment">-- 整个公司的平均薪资</span><br>    );<br></code></pre></td></tr></table></figure>
+
+<p>这就是 hive 的高阶聚合，与普通聚合的区别是在 group by 后面追加 grouping sets，提供 group by 字段的若干排列组合，hive 会将不同组合计算出来后 union all 返回，从 sql 语义上看两者是等价的，但高阶聚合可以充分利用聚合中间值效率会更高且 sql 更加直观。</p>
+<p>结果如下（耗时 18s）</p>
+<p><img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-11-22/image-20231122133959936.png" alt="image-20231122133959936"></p>
+<p>小蒋同步分析了日志和执行情况，上述任务只需要启动一个 job 只不过单个 job 会比原先 job 资源消耗略高一点。优化已经完成了 90%，小蒋此时需要考虑每行数据如何分配 type 类型。恰好 hive 提供了虚拟字段 grouping__id 来划分不同</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> department, team, post, round(<span class="hljs-built_in">avg</span>(salary)) <span class="hljs-keyword">as</span> avg_salarg, grouping__id<br><span class="hljs-keyword">from</span> dwd_employee_salary<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> department, team, post<br>    <span class="hljs-keyword">grouping</span> sets (<br>    ( post),             <span class="hljs-comment">-- 不同岗位的平均薪资</span><br>    ( team),             <span class="hljs-comment">-- 不同团队的平均薪资</span><br>    ( department),       <span class="hljs-comment">-- 不同部门的平均薪资</span><br>    ( department, post), <span class="hljs-comment">-- 不同部门不同岗位的平均薪资</span><br>    ()                   <span class="hljs-comment">-- 整个公司的平均薪资</span><br>    );<br></code></pre></td></tr></table></figure>
+
+<p>结果如下</p>
+<p><img src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-11-22/image-20231122134832363.png" alt="image-20231122134832363"></p>
+<p>聪明的小蒋一眼就看出来 grouping__id 的算法。首先 grouping sets 中的组合一定是 group by 的子集，小蒋给出了下面的表格并规定</p>
+<ol>
+<li>首行为 group by 按顺序排列的字段名</li>
+<li>首列为 grouping sets 所有组合</li>
+<li>单元格填充 0 或 1，若字段存在填 0 不存在填 1</li>
+<li>得到的二进制后转为十进制</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>department</th>
+<th>team</th>
+<th>post</th>
+<th>二进制</th>
+<th>十进制</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>(post)</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+<td>110</td>
+<td>6</td>
+</tr>
+<tr>
+<td>(team)</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td>101</td>
+<td>5</td>
+</tr>
+<tr>
+<td>(department)</td>
+<td>0</td>
+<td>1</td>
+<td>1</td>
+<td>011</td>
+<td>3</td>
+</tr>
+<tr>
+<td>(department, post)</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>010</td>
+<td>2</td>
+</tr>
+<tr>
+<td>()</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+<td>111</td>
+<td>7</td>
+</tr>
+</tbody></table>
+<p> 那么就可以根据十进制的数字来判断本行是哪个 type 了，最终 sql 如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> department,<br>       team,<br>       post,<br>       round(<span class="hljs-built_in">avg</span>(salary)) <span class="hljs-keyword">as</span> avg_salarg,<br>       <span class="hljs-keyword">case</span> grouping__id<br>           <span class="hljs-keyword">when</span> <span class="hljs-number">6</span> <span class="hljs-keyword">then</span> <span class="hljs-string">&#x27;不同岗位的平均薪资&#x27;</span><br>           <span class="hljs-keyword">when</span> <span class="hljs-number">5</span> <span class="hljs-keyword">then</span> <span class="hljs-string">&#x27;不同团队的平均薪资&#x27;</span><br>           <span class="hljs-keyword">when</span> <span class="hljs-number">3</span> <span class="hljs-keyword">then</span> <span class="hljs-string">&#x27;不同部门的平均薪资&#x27;</span><br>           <span class="hljs-keyword">when</span> <span class="hljs-number">2</span> <span class="hljs-keyword">then</span> <span class="hljs-string">&#x27;不同部门不同岗位的平均薪资&#x27;</span><br>           <span class="hljs-keyword">when</span> <span class="hljs-number">7</span> <span class="hljs-keyword">then</span> <span class="hljs-string">&#x27;整个公司的平均薪资&#x27;</span> <span class="hljs-keyword">end</span> type<br><span class="hljs-keyword">from</span> dwd_employee_salary<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> department, team, post<br>    <span class="hljs-keyword">grouping</span> sets (<br>    ( post),             <span class="hljs-comment">-- 不同岗位的平均薪资</span><br>    ( team),             <span class="hljs-comment">-- 不同团队的平均薪资</span><br>    ( department),       <span class="hljs-comment">-- 不同部门的平均薪资</span><br>    ( department, post), <span class="hljs-comment">-- 不同部门不同岗位的平均薪资</span><br>    ()                   <span class="hljs-comment">-- 整个公司的平均薪资</span><br>    );<br></code></pre></td></tr></table></figure>
+
+<p>王老板看到后表示非常满意！！！并希望在所有的 hive 版本都可以兼容，小蒋随后部署一套 hive 2.1.1 的版本测试发现 grouping__id 居然不一样，原来 hive 在 2.3.0 修改了 grouping__id 的逻辑，聪明的小蒋很快就总结出了 2.3.0 之前的算法</p>
+<ol>
+<li>首行为 group by 按顺序排列的字段名</li>
+<li>首列为 grouping sets 所有组合</li>
+<li>单元格填充 0 或 1，若字段存在填 1 不存在填 0</li>
+<li>得到的二进制进行反转后转为十进制</li>
+</ol>
+<p>上面的表格就变成了</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>department</th>
+<th>team</th>
+<th>post</th>
+<th>二进制</th>
+<th>反转</th>
+<th>十进制</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>(post)</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>001</td>
+<td>100</td>
+<td>4</td>
+</tr>
+<tr>
+<td>(team)</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>010</td>
+<td>010</td>
+<td>2</td>
+</tr>
+<tr>
+<td>(department)</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>100</td>
+<td>001</td>
+<td>1</td>
+</tr>
+<tr>
+<td>(department, post)</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td>101</td>
+<td>101</td>
+<td>5</td>
+</tr>
+<tr>
+<td>()</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>000</td>
+<td>000</td>
+<td>0</td>
+</tr>
+</tbody></table>
+<h1 id="四、拓展-总结"><a href="#四、拓展-总结" class="headerlink" title="四、拓展&amp;总结"></a>四、拓展&amp;总结</h1><p>在随后的 sql review 中小蒋发现一些特殊的 grouping sets 集合在业务上有特殊的含义，例如对于一个 group by a, b, c 三个维度的聚合</p>
+<ol>
+<li>{(),(a),(b),(c),(a,b),(a,c),(b,c),(a,b,c)}</li>
+<li>{(a,b,c),(a,b),(a),()}</li>
+</ol>
+<p>第一种情况是所有维度的排列组合，业务上称为 cube 立方体的概念，这样的立方体可以在指定维度下能够满足所有情况的数据角度，而 kylin 的实现就是这样；第二种情况则是维度递减或递增，一步一步的抽出多余的维度从而看到每个层级的数据，业务上成为 rollup 上卷或下钻。</p>
+<p>对于这两类特殊情况 hive 进一步简化 sql，不需要手动指定 grouping sets 了，只需要在 group by 后面追加 with cube 或 with rollup 即可，同时虚拟字段 grouping__id 依然使用，因此可以理解为 with cube&#x2F;rollup 是对 grouping sets 的简写。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">select</span> a, b, c, <span class="hljs-built_in">count</span>(<span class="hljs-number">1</span>)<br><span class="hljs-keyword">from</span> xxx<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> a, b, c<br><span class="hljs-keyword">with</span> <span class="hljs-keyword">cube</span>;<br><span class="hljs-comment">---- 等价 ----</span><br><span class="hljs-keyword">select</span> a, b, c, <span class="hljs-built_in">count</span>(<span class="hljs-number">1</span>)<br><span class="hljs-keyword">from</span> xxx<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> a, b, c<br>    <span class="hljs-keyword">grouping</span> sets (<br>       (), (a), (b), (c), (a, b), (a, c), (b, c), (a, b, c)<br>    );<br><span class="hljs-comment">--------------------------------------------------------------------</span><br><span class="hljs-keyword">select</span> a, b, c, <span class="hljs-built_in">count</span>(<span class="hljs-number">1</span>)<br><span class="hljs-keyword">from</span> xxx<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> a, b, c<br><span class="hljs-keyword">with</span> <span class="hljs-keyword">rollup</span>;<br><span class="hljs-comment">---- 等价 ----</span><br><span class="hljs-keyword">select</span> a, b, c, <span class="hljs-built_in">count</span>(<span class="hljs-number">1</span>)<br><span class="hljs-keyword">from</span> xxx<br><span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> a, b, c<br>    <span class="hljs-keyword">grouping</span> sets (<br>    ( a, b, c), ( a, b), ( a), ()<br>    );<br></code></pre></td></tr></table></figure>
+
+
+      </div>
+    </div>
+  </article>
+  <div class="post__foot">
+    
+      <div class="like-author">
+  <input type="checkbox" id="likeCode" />
+  <div class="author-face">
+    <img height="100px"
+         width="100px"
+         id="front-face"
+         alt="author face"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-10-31/IMG_4075.JPG" />
+    <img height="100px"
+         width="100px"
+         id="back-face"
+         alt="like code"
+         src="https://cdn.jsdelivr.net/gh/kpretty/oss@master/2023-08-10/QRcode_A%20%E2%80%94%20a1.jpg" />
+  </div>
+  <div class="like-text">请作者喝杯咖啡</div>
+  <label for="likeCode" class="like-btn">
+    <svg viewBox="0 0 1024 1024"
+         width="20px"
+         style="margin-right: 10px"
+         height="20px">
+      <path d="M466.88 908.96L113.824 563.296a270.08 270.08 0 0 1 0-387.392c108.8-106.56 284.896-106.56 393.696 0 1.504 1.472 2.976 2.944 4.448 4.48 1.472-1.536 2.944-3.008 4.448-4.48 108.8-106.56 284.896-106.56 393.696 0a269.952 269.952 0 0 1 34.016 347.072l-387.392 385.6a64 64 0 0 1-89.92 0.384z" p-id="13650" fill="#ee4242" />
+    </svg>
+    喜欢作者
+  </label>
+</div>
+
+    
+    <div class="post-nav">
+  
+    <div class="post-nav-item-left"></div>
+  
+  <div class="vhr"></div>
+  
+    <a class="post-nav-item-right" href="/2023/10/31/hive/date-dim/">
+      <div class="text-align">
+        <span class="text-small">下一篇</span>
+        <svg t="1670570876164"
+             class="icon"
+             viewBox="0 0 1024 1024"
+             transform="scale(-1,-1)"
+             width="16"
+             height="16">
+          <path d="M384 512L731.733333 202.666667c17.066667-14.933333 19.2-42.666667 4.266667-59.733334-14.933333-17.066667-42.666667-19.2-59.733333-4.266666l-384 341.333333c-10.666667 8.533333-14.933333 19.2-14.933334 32s4.266667 23.466667 14.933334 32l384 341.333333c8.533333 6.4 19.2 10.666667 27.733333 10.666667 12.8 0 23.466667-4.266667 32-14.933333 14.933333-17.066667 14.933333-44.8-4.266667-59.733334L384 512z" p-id="14596"/>
+        </svg>
+      </div>
+      构建 hive 时间维表
+    </a>
+  
+</div>
+
+    
+      <div class="related-post">
+  <div class="related__head">
+  <a href="/tags/hive/" class="post-tag">#hive</a>
+
+</div>
+  <div class="realated__body">
+    
+      <div class="null"><div class="null-item"><div class="null-title"><a href="/2023/10/31/hive/date-dim/" title="构建 hive 时间维表" rel="bookmark">构建 hive 时间维表</a></div></div><div class="null-item"><div class="null-title"><a href="/2023/09/14/hive/mapjoin-problem/" title="hive 的 mapjoin 一定是优化手段吗" rel="bookmark">hive 的 mapjoin 一定是优化手段吗</a></div></div></div>
+    
+  </div>
+</div>
+
+    
+    <div id="gitalk-container"></div>
+  </div>
+
+    </div>
+    <div class="foot">
+      <div class="foot-inner">
+        <div class="foot__head">
+          
+            <div class="foot-line">
+              <div class="matts">探</div><div class="matts">索</div><div class="matts">未</div><div class="matts">知</div><div class="matts">激</div><div class="matts">发</div><div class="matts">灵</div><div class="matts">感</div>
+            </div>
+          
+            <div class="foot-line">
+              <div class="matts">自</div><div class="matts">由</div><div class="matts">创</div><div class="matts">造</div><div class="matts">跨</div><div class="matts">越</div><div class="matts">界</div><div class="matts">限</div>
+            </div>
+          
+        </div>
+        <div class="foot__body">
+          
+            <div class="foot-item">
+              <div class="foot-item__head">朋友</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/icon/icon-link.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://kpretty.tech">博主的主站</a>
+                  </div>
+                
+                <div class="text">
+                  <img alt="link" height="20px" width="20px" src="/images/icon/icon-link+.svg" />
+                  <a class="foot-link"
+                     href="mailto:wjunjobs@outlook.com?subject=%E7%94%B3%E8%AF%B7%20Hozen.site%20%E7%9A%84%E5%8F%8B%E9%93%BE%E4%BD%8D%E7%BD%AE">
+                  申请友链</a>
+                </div>
+              </div>
+            </div>
+          
+          
+            <div class="foot-item">
+              <div class="foot-item__head">账号</div>
+              <div class="foot-item__body">
+                
+                  <div class="text">
+                    <img alt="link" height="20px" width="20px" src="/images/logo-github.svg" />
+                    <a class="foot-link" target="_blank" rel="noopener" href="https://github.com/kpretty">github</a>
+                  </div>
+                
+              </div>
+            </div>
+          
+          <div class="foot-item">
+            <div class="foot-item__head">联系</div>
+            <div class="foot-item__body">
+              <div class="text">
+                <img alt="link" height="20px" width="20px" src="/images/icon/icon-email.svg" />
+                <a class="foot-link" href="mailto:wjunjobs@outlook.com">wjunjobs@outlook.com</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="copyright">
+          <a href="https://uhope.fun">Youth Hope Fun</a> &nbsp;|&nbsp;由&nbsp;<a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>&nbsp;及&nbsp;
+          <svg width="20" height="20" viewBox="0 0 725 725">
+            <path fill-rule="evenodd" fill="rgb(221, 221, 221)" d="M145.870,236.632 L396.955,103.578 L431.292,419.44 L156.600,522.53 L145.870,236.632 Z" />
+            <path fill-rule="evenodd" fill="rgb(159, 159, 159)" d="M396.955,103.578 L564.345,234.486 L611.558,513.469 L431.292,419.44 L396.955,103.578 Z" />
+            <path fill-rule="evenodd" fill="rgb(0, 0, 0)" d="M431.292,419.44 L611.558,513.469 L358.327,595.18 L156.600,522.53 L431.292,419.44 Z" />
+          </svg>
+          <a target="_blank" rel="noopener" href="https://github.com/hooozen/hexo-theme-tranquility">致远</a>&nbsp;驱动
+        </div>
+      </div>
+    </div>
+    
+      <script src="https://unpkg.com/js-polyfills@0.1.43/es6.js"></script>
+      <script id="MathJax-script"
+              async
+              src="https://www.unpkg.com/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+    
+    
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+<script type="text/javascript">
+  const param = JSON.parse('{"enable":true,"owner":"kpretty","admin":["kpretty"],"repo":"blog-comment","clientID":"0ca314933bd70869d267","clientSecret":"1d9a7930f641b37c9900ae8105fab1275c4d84ba","distractionFreeMode":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":"zh-CN"}')
+  param.id = location.pathname
+  const gitalk = new Gitalk(param)
+  gitalk.render('gitalk-container')
+</script>
+
+
+  </body>
+</html>
